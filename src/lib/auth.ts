@@ -13,6 +13,11 @@ export const auth = betterAuth({
 		provider: "pg",
 		schema,
 	}),
+	user: {
+		deleteUser: {
+			enabled: true,
+		},
+	},
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,

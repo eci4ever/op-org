@@ -17,6 +17,16 @@ export const Route = createFileRoute("/_protected/account")({
 	component: RouteComponent,
 });
 
+type Session = {
+	id: string;
+	token: string;
+	userId: string;
+	expiresAt: Date;
+	createdAt: Date;
+	ipAddress?: string | null;
+	userAgent?: string | null;
+};
+
 function RouteComponent() {
 	const { data: session, isPending } = authClient.useSession();
 	const [name, setName] = useState("");
@@ -34,10 +44,33 @@ function RouteComponent() {
 	const [passwordError, setPasswordError] = useState<string | null>(null);
 	const [changing, setChanging] = useState(false);
 
+	const [sessions, setSessions] = useState<Session[]>([]);
+	const [sessionsLoading, setSessionsLoading] = useState(false);
+	const [revokingToken, setRevokingToken] = useState<string | null>(null);
+	const [revokingOthers, setRevokingOthers] = useState(false);
+
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [deletePassword, setDeletePassword] = useState("");
+	const [deleteConfirmText, setDeleteConfirmText] = useState("");
+	const [deleting, setDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const currentSessionToken = session?.session?.token;
+
 	useEffect(() => {
 		if (session?.user) {
 			setName(session.user.name);
 			setImage(session.user.image ?? "");
+		}
+	}, [session]);
+
+	useEffect(() => {
+		if (session?.session?.token) {
+			setSessionsLoading(true);
+			authClient.listSessions().then(({ data }) => {
+				setSessions(data ?? []);
+				setSessionsLoading(false);
+			});
 		}
 	}, [session]);
 
@@ -87,6 +120,38 @@ function RouteComponent() {
 		}
 
 		setSaving(false);
+	};
+
+	const handleRevokeSession = async (token: string) => {
+		setRevokingToken(token);
+		await authClient.revokeSession({ token });
+		setSessions((prev) => prev.filter((s) => s.token !== token));
+		setRevokingToken(null);
+	};
+
+	const handleRevokeOtherSessions = async () => {
+		setRevokingOthers(true);
+		await authClient.revokeOtherSessions();
+		const { data } = await authClient.listSessions();
+		setSessions(data ?? []);
+		setRevokingOthers(false);
+	};
+
+	const handleDeleteAccount = async () => {
+		if (deleteConfirmText !== "DELETE") return;
+
+		setDeleting(true);
+		setDeleteError(null);
+
+		const { error } = await authClient.deleteUser({
+			password: deletePassword,
+			callbackURL: "/",
+		});
+
+		if (error) {
+			setDeleteError(error.message ?? "Failed to delete account");
+			setDeleting(false);
+		}
 	};
 
 	const handlePasswordChange = async () => {
@@ -252,6 +317,152 @@ function RouteComponent() {
 								</Button>
 							</FieldGroup>
 						</form>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Sessions</CardTitle>
+						<CardDescription>
+							Manage your active sessions. Revoke any sessions you don't
+							recognize.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{sessionsLoading ? (
+							<p className="text-sm text-muted-foreground">
+								Loading sessions...
+							</p>
+						) : sessions.length === 0 ? (
+							<p className="text-sm text-muted-foreground">
+								No active sessions found.
+							</p>
+						) : (
+							<div className="space-y-3">
+								{sessions.map((s) => {
+									const isCurrent = s.token === currentSessionToken;
+									return (
+										<div
+											key={s.token}
+											className="flex items-center justify-between rounded-lg border p-3"
+										>
+											<div className="space-y-1">
+												<p className="text-sm font-medium">
+													{s.userAgent ?? "Unknown device"}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													Created {new Date(s.createdAt).toLocaleDateString()}
+													{s.ipAddress ? ` · ${s.ipAddress}` : ""}
+												</p>
+												{isCurrent && (
+													<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+														Current
+													</span>
+												)}
+											</div>
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={isCurrent || revokingToken === s.token}
+												onClick={() => handleRevokeSession(s.token)}
+											>
+												{revokingToken === s.token ? "Revoking..." : "Revoke"}
+											</Button>
+										</div>
+									);
+								})}
+							</div>
+						)}
+						{sessions.length > 1 && (
+							<Button
+								variant="destructive"
+								size="sm"
+								disabled={revokingOthers}
+								onClick={handleRevokeOtherSessions}
+							>
+								{revokingOthers ? "Revoking..." : "Revoke all other sessions"}
+							</Button>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card className="border-red-200">
+					<CardHeader>
+						<CardTitle className="text-red-600">Danger Zone</CardTitle>
+						<CardDescription>
+							Once you delete your account, there is no going back. All your
+							data will be permanently removed.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{!showDeleteConfirm ? (
+							<Button
+								variant="destructive"
+								onClick={() => setShowDeleteConfirm(true)}
+							>
+								Delete Account
+							</Button>
+						) : (
+							<div className="space-y-4 rounded-lg border border-red-200 bg-red-50 p-4">
+								<p className="text-sm font-medium text-red-800">
+									Are you absolutely sure?
+								</p>
+								<p className="text-sm text-red-600">
+									This action cannot be undone. This will permanently delete
+									your account and remove all associated data.
+								</p>
+								<FieldGroup>
+									<Field>
+										<FieldLabel htmlFor="delete-password">
+											Enter your password
+										</FieldLabel>
+										<Input
+											id="delete-password"
+											type="password"
+											value={deletePassword}
+											onChange={(e) => setDeletePassword(e.target.value)}
+										/>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="delete-confirm">
+											Type <span className="font-bold">DELETE</span> to confirm
+										</FieldLabel>
+										<Input
+											id="delete-confirm"
+											value={deleteConfirmText}
+											onChange={(e) => setDeleteConfirmText(e.target.value)}
+										/>
+									</Field>
+									{deleteError && (
+										<p className="text-sm text-red-600">{deleteError}</p>
+									)}
+									<div className="flex gap-2">
+										<Button
+											variant="outline"
+											onClick={() => {
+												setShowDeleteConfirm(false);
+												setDeletePassword("");
+												setDeleteConfirmText("");
+												setDeleteError(null);
+											}}
+										>
+											Cancel
+										</Button>
+										<Button
+											variant="destructive"
+											disabled={
+												deleting ||
+												!deletePassword ||
+												deleteConfirmText !== "DELETE"
+											}
+											onClick={handleDeleteAccount}
+										>
+											{deleting ? "Deleting..." : "Permanently delete account"}
+										</Button>
+									</div>
+								</FieldGroup>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 			</div>
