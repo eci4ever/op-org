@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "#/components/ui/button.tsx";
 import {
@@ -82,12 +82,12 @@ export function LoginForm({
 							<Field>
 								<div className="flex items-center">
 									<FieldLabel htmlFor="password">Password</FieldLabel>
-									<a
-										href="#"
+									<Link
+										to="/forgot-password"
 										className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
 									>
 										Forgot your password?
-									</a>
+									</Link>
 								</div>
 								<Input
 									id="password"

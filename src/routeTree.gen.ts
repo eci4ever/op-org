@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as ProtectedRouteImport } from './routes/_protected'
@@ -24,9 +26,19 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailVerifiedRoute = EmailVerifiedRouteImport.update({
@@ -68,7 +80,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/check-email': typeof CheckEmailRoute
   '/email-verified': typeof EmailVerifiedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
@@ -78,7 +92,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/check-email': typeof CheckEmailRoute
   '/email-verified': typeof EmailVerifiedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
@@ -90,7 +106,9 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteWithChildren
   '/check-email': typeof CheckEmailRoute
   '/email-verified': typeof EmailVerifiedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_protected/account': typeof ProtectedAccountRoute
   '/_protected/dashboard': typeof ProtectedDashboardRoute
@@ -102,7 +120,9 @@ export interface FileRouteTypes {
     | '/'
     | '/check-email'
     | '/email-verified'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/account'
     | '/dashboard'
@@ -112,7 +132,9 @@ export interface FileRouteTypes {
     | '/'
     | '/check-email'
     | '/email-verified'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/account'
     | '/dashboard'
@@ -123,7 +145,9 @@ export interface FileRouteTypes {
     | '/_protected'
     | '/check-email'
     | '/email-verified'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/_protected/account'
     | '/_protected/dashboard'
@@ -135,7 +159,9 @@ export interface RootRouteChildren {
   ProtectedRoute: typeof ProtectedRouteWithChildren
   CheckEmailRoute: typeof CheckEmailRoute
   EmailVerifiedRoute: typeof EmailVerifiedRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -149,11 +175,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email-verified': {
@@ -227,7 +267,9 @@ const rootRouteChildren: RootRouteChildren = {
   ProtectedRoute: ProtectedRouteWithChildren,
   CheckEmailRoute: CheckEmailRoute,
   EmailVerifiedRoute: EmailVerifiedRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
