@@ -29,7 +29,7 @@ function RouteComponent() {
 						</Button>
 					) : (
 						<>
-							<Button asChild>
+							<Button>
 								<a href="/login">Sign in</a>
 							</Button>
 							<Button variant="outline" asChild>

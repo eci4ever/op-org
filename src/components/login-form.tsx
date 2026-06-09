@@ -34,26 +34,26 @@ export function LoginForm({
 		setError(null);
 		setLoading(true);
 
-		await authClient.signIn.email(
-			{
-				email,
-				password,
-				callbackURL: redirect ?? "/dashboard",
-			},
-			{
-				onRequest: () => {
-					// Request started
-				},
-				onSuccess: () => {
-					navigate({ to: redirect ?? "/dashboard" });
-				},
-				onError: (ctx) => {
-					setError(ctx.error.message ?? "An unexpected error occurred");
-				},
-			},
-		);
+		const { data, error } = await authClient.signIn.email({
+			email,
+			password,
+			callbackURL: redirect ?? "/dashboard",
+		});
 
-		setLoading(false);
+		if (error) {
+			setError(error.message ?? "An unexpected error occurred");
+			setLoading(false);
+			return;
+		}
+
+		if (data) {
+			navigate({ to: redirect ?? "/dashboard" });
+		} else {
+			setError(
+				"Please verify your email address before signing in. Check your inbox for the verification link.",
+			);
+			setLoading(false);
+		}
 	};
 
 	return (
