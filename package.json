@@ -15,7 +15,8 @@
     "lint": "biome lint",
     "check": "biome check",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "auth:generate": "bunx @better-auth/cli@latest generate --config ./src/lib/auth.ts --output ./src/db/schema.ts --yes"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -28,6 +29,7 @@
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "^1.132.0",
+    "better-auth": "^1.6.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
