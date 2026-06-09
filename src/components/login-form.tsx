@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button.tsx";
 import {
 	Card,
@@ -29,11 +30,22 @@ export function LoginForm({
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [passkeyLoading, setPasskeyLoading] = useState(false);
+	const [emailNotVerified, setEmailNotVerified] = useState(false);
+	const [resendLoading, setResendLoading] = useState(false);
+	const [resendSent, setResendSent] = useState(false);
+	const [cooldown, setCooldown] = useState(0);
+
+	useEffect(() => {
+		if (cooldown <= 0) return;
+		const timer = setInterval(() => setCooldown((c) => c - 1), 1000);
+		return () => clearInterval(timer);
+	}, [cooldown]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
 		setLoading(true);
+		setEmailNotVerified(false);
 
 		const { data, error } = await authClient.signIn.email({
 			email,
@@ -42,7 +54,12 @@ export function LoginForm({
 		});
 
 		if (error) {
-			setError(error.message ?? "An unexpected error occurred");
+			if (error.status === 403) {
+				setEmailNotVerified(true);
+				setError("Please verify your email before logging in.");
+			} else {
+				setError(error.message ?? "An unexpected error occurred");
+			}
 			setLoading(false);
 			return;
 		}
@@ -50,8 +67,9 @@ export function LoginForm({
 		if (data) {
 			navigate({ to: redirect ?? "/dashboard" });
 		} else {
+			setEmailNotVerified(true);
 			setError(
-				"Please verify your email address before signing in. Check your inbox for the verification link.",
+				"Please verify your email before logging in.",
 			);
 			setLoading(false);
 		}
@@ -76,6 +94,25 @@ export function LoginForm({
 		}
 
 		setPasskeyLoading(false);
+	};
+
+	const handleResendVerification = async () => {
+		setResendLoading(true);
+
+		const { error } = await authClient.sendVerificationEmail({
+			email,
+			callbackURL: "/email-verified",
+		});
+
+		if (error) {
+			toast.error(error.message ?? "Failed to send verification email");
+		} else {
+			toast.success("Verification email sent");
+			setResendSent(true);
+			setCooldown(60);
+		}
+
+		setResendLoading(false);
 	};
 
 	return (
@@ -120,6 +157,36 @@ export function LoginForm({
 								/>
 							</Field>
 							{error && <p className="text-sm text-red-500">{error}</p>}
+							{emailNotVerified && !resendSent && (
+								<Button
+									variant="outline"
+									type="button"
+									disabled={resendLoading || cooldown > 0}
+									onClick={handleResendVerification}
+									className="w-full"
+								>
+									{resendLoading
+										? "Sending..."
+										: cooldown > 0
+											? `Resend in ${cooldown}s`
+											: "Resend verification email"}
+								</Button>
+							)}
+							{resendSent && (
+								<p className="text-sm text-green-600 text-center">
+									Verification email sent. Check your inbox.{" "}
+									{cooldown === 0 && (
+										<button
+											type="button"
+											className="underline underline-offset-2 hover:text-green-700"
+											disabled={resendLoading}
+											onClick={handleResendVerification}
+										>
+											Send again
+										</button>
+									)}
+								</p>
+							)}
 							<Field>
 								<Button type="submit" disabled={loading}>
 									{loading ? "Signing in..." : "Login"}

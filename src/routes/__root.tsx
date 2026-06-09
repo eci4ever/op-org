@@ -13,6 +13,8 @@ import appCss from '../styles.css?url'
 import type { QueryClient } from '@tanstack/react-query'
 import { TooltipProvider } from '#/components/ui/tooltip'
 
+import { Toaster } from "@/components/ui/sonner"
+
 interface MyRouterContext {
   queryClient: QueryClient
 }
@@ -49,6 +51,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
+        <Toaster richColors />
         <TanStackDevtools
           config={{
             position: 'bottom-right',
