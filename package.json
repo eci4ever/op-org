@@ -19,6 +19,7 @@
     "auth:generate": "bunx @better-auth/cli@latest generate --config ./src/lib/auth.ts --output ./src/db/schema.ts --yes"
   },
   "dependencies": {
+    "@better-auth/passkey": "^1.6.15",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-form": "latest",

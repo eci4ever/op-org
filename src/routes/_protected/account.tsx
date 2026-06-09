@@ -68,6 +68,16 @@ function RouteComponent() {
 	const [setupPassword, setSetupPassword] = useState("");
 	const [showDisableConfirm, setShowDisableConfirm] = useState(false);
 
+	const [passkeyName, setPasskeyName] = useState("");
+	const [addingPasskey, setAddingPasskey] = useState(false);
+	const [deletingPasskeyId, setDeletingPasskeyId] = useState<string | null>(
+		null,
+	);
+	const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
+	const { data: passkeys, refetch: refetchPasskeys } =
+		authClient.useListPasskeys();
+
 	const twoFactorEnabled = (session?.user as Record<string, unknown> | null)
 		?.twoFactorEnabled as boolean | undefined;
 
@@ -260,6 +270,54 @@ function RouteComponent() {
 		setBackupCodes(data?.backupCodes ?? []);
 		setTwoFactorStep("codes");
 		setTwoFactorLoading(false);
+	};
+
+	const handleAddPasskey = async () => {
+		setAddingPasskey(true);
+		setPasskeyError(null);
+
+		const { data, error } = await authClient.passkey.addPasskey({
+			name: passkeyName || undefined,
+		});
+
+		if (error) {
+			setPasskeyError(error.message ?? "Failed to register passkey");
+			setAddingPasskey(false);
+			return;
+		}
+
+		if (data) {
+			setPasskeyName("");
+			refetchPasskeys();
+		}
+
+		setAddingPasskey(false);
+	};
+
+	const handleDeletePasskey = async (id: string) => {
+		setDeletingPasskeyId(id);
+		setPasskeyError(null);
+
+		try {
+			const res = await fetch("/api/auth/passkey/delete-passkey", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ id }),
+			});
+			const json = await res.json();
+
+			if (!res.ok || json.error) {
+				throw new Error(json.error?.message ?? "Failed to delete passkey");
+			}
+
+			refetchPasskeys();
+		} catch (err) {
+			setPasskeyError(
+				err instanceof Error ? err.message : "Failed to delete passkey",
+			);
+		}
+
+		setDeletingPasskeyId(null);
 	};
 
 	const handlePasswordChange = async () => {
@@ -681,6 +739,74 @@ function RouteComponent() {
 							>
 								{twoFactorLoading ? "Loading..." : "Set up two-factor"}
 							</Button>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Passkeys</CardTitle>
+						<CardDescription>
+							Register a passkey to sign in quickly and securely without a
+							password.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{passkeyError && (
+							<p className="text-sm text-red-500">{passkeyError}</p>
+						)}
+
+						{passkeys && passkeys.length > 0 && (
+							<div className="space-y-2">
+								{passkeys.map((pk) => (
+									<div
+										key={pk.id}
+										className="flex items-center justify-between rounded-lg border p-3"
+									>
+										<div className="space-y-1">
+											<p className="text-sm font-medium">
+												{pk.name ?? "Unnamed passkey"}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												{pk.backedUp
+													? "Backed up"
+													: "Not backed up"}
+												{pk.createdAt
+													? ` · Registered ${new Date(pk.createdAt).toLocaleDateString()}`
+													: ""}
+											</p>
+										</div>
+										<Button
+											variant="destructive"
+											size="sm"
+											disabled={deletingPasskeyId === pk.id}
+											onClick={() => handleDeletePasskey(pk.id)}
+										>
+											{deletingPasskeyId === pk.id ? "Removing..." : "Remove"}
+										</Button>
+									</div>
+								))}
+							</div>
+						)}
+
+						<div className="flex items-center gap-2">
+							<Input
+								placeholder="Passkey name (optional)"
+								value={passkeyName}
+								onChange={(e) => setPasskeyName(e.target.value)}
+								className="flex-1"
+							/>
+							<Button
+								disabled={addingPasskey}
+								onClick={handleAddPasskey}
+							>
+								{addingPasskey ? "Registering..." : "Register passkey"}
+							</Button>
+						</div>
+						{(!passkeys || passkeys.length === 0) && (
+							<p className="text-sm text-muted-foreground">
+								No passkeys registered yet. Add one above.
+							</p>
 						)}
 					</CardContent>
 				</Card>

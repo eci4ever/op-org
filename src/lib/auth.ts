@@ -2,8 +2,9 @@ import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, organization, twoFactor } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import db from "#/db";
+import db from "@/db";
 import { makeEmailTemplate, sendEmail } from "#/server/email/email.service";
 import * as schema from "@/db/schema";
 
@@ -43,5 +44,16 @@ export const auth = betterAuth({
 		sendOnSignUp: true,
 		autoSignInAfterVerification: false,
 	},
-	plugins: [admin(), organization(), twoFactor(), tanstackStartCookies()],
+	plugins: [
+		admin(),
+		organization(),
+		twoFactor(),
+		passkey({
+			rpID: new URL(
+				process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+			).hostname,
+			rpName: "op-org",
+		}),
+		tanstackStartCookies(),
+	],
 });

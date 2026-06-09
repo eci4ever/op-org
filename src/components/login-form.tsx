@@ -28,6 +28,7 @@ export function LoginForm({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [passkeyLoading, setPasskeyLoading] = useState(false);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -54,6 +55,27 @@ export function LoginForm({
 			);
 			setLoading(false);
 		}
+	};
+
+	const handlePasskeySignIn = async () => {
+		setPasskeyLoading(true);
+		setError(null);
+
+		const { data, error } = await authClient.signIn.passkey({
+			autoFill: false,
+		});
+
+		if (error) {
+			setError(error.message ?? "Passkey sign-in failed");
+			setPasskeyLoading(false);
+			return;
+		}
+
+		if (data) {
+			navigate({ to: redirect ?? "/dashboard" });
+		}
+
+		setPasskeyLoading(false);
 	};
 
 	return (
@@ -104,6 +126,16 @@ export function LoginForm({
 								</Button>
 								<Button variant="outline" type="button">
 									Login with Google
+								</Button>
+								<Button
+									variant="outline"
+									type="button"
+									disabled={passkeyLoading}
+									onClick={handlePasskeySignIn}
+								>
+									{passkeyLoading
+										? "Checking..."
+										: "Sign in with Passkey"}
 								</Button>
 								<FieldDescription className="text-center">
 									Don&apos;t have an account?{" "}
