@@ -1,18 +1,31 @@
-import db from "#/db";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import db from "#/db";
+import { makeEmailTemplate, sendEmail } from "#/server/email/email.service";
 import * as schema from "@/db/schema";
-import { admin } from "better-auth/plugins";
-import { organization } from "better-auth/plugins";
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema,
-  }),
-  emailAndPassword: {
-    enabled: true,
-  },
-  plugins: [admin(), organization(), tanstackStartCookies()],
+	database: drizzleAdapter(db, {
+		provider: "pg",
+		schema,
+	}),
+	emailAndPassword: {
+		enabled: true,
+		requireEmailVerification: true,
+	},
+	emailVerification: {
+		sendVerificationEmail: async ({ user, url }) => {
+			const template = makeEmailTemplate("email-verification", {
+				recipientName: user.name,
+				actionUrl: url,
+			});
+
+			await sendEmail({ to: user.email, template });
+		},
+		sendOnSignUp: true,
+		autoSignInAfterVerification: false,
+	},
+	plugins: [admin(), organization(), tanstackStartCookies()],
 });

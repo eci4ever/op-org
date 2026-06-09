@@ -47,11 +47,12 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 				email,
 				password,
 				name,
-				callbackURL: "/dashboard",
+				callbackURL: "/email-verified",
 			},
 			{
-				onSuccess: () => {
-					navigate({ to: "/dashboard" });
+				onSuccess: async () => {
+					await authClient.signOut();
+					navigate({ to: "/check-email" });
 				},
 				onError: (ctx) => {
 					setError(ctx.error.message ?? "An unexpected error occurred");

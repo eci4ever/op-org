@@ -1,7 +1,16 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Button } from "#/components/ui/button";
+import { getSession } from "@/lib/auth.functions";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+	beforeLoad: async () => {
+		const session = await getSession();
+		if (session) {
+			throw redirect({ to: "/dashboard" });
+		}
+	},
+	component: Home,
+});
 
 function Home() {
 	return (

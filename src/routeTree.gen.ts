@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
+import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
@@ -25,6 +27,16 @@ const SignupRoute = SignupRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailVerifiedRoute = EmailVerifiedRouteImport.update({
+  id: '/email-verified',
+  path: '/email-verified',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckEmailRoute = CheckEmailRouteImport.update({
+  id: '/check-email',
+  path: '/check-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedRoute = ProtectedRouteImport.update({
@@ -54,6 +66,8 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/check-email': typeof CheckEmailRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/account': typeof ProtectedAccountRoute
@@ -62,6 +76,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/check-email': typeof CheckEmailRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/account': typeof ProtectedAccountRoute
@@ -72,6 +88,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
+  '/check-email': typeof CheckEmailRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_protected/account': typeof ProtectedAccountRoute
@@ -82,17 +100,29 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/check-email'
+    | '/email-verified'
     | '/login'
     | '/signup'
     | '/account'
     | '/dashboard'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/account' | '/dashboard' | '/api/auth/$'
+  to:
+    | '/'
+    | '/check-email'
+    | '/email-verified'
+    | '/login'
+    | '/signup'
+    | '/account'
+    | '/dashboard'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/_protected'
+    | '/check-email'
+    | '/email-verified'
     | '/login'
     | '/signup'
     | '/_protected/account'
@@ -103,6 +133,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
+  CheckEmailRoute: typeof CheckEmailRoute
+  EmailVerifiedRoute: typeof EmailVerifiedRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -122,6 +154,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email-verified': {
+      id: '/email-verified'
+      path: '/email-verified'
+      fullPath: '/email-verified'
+      preLoaderRoute: typeof EmailVerifiedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/check-email': {
+      id: '/check-email'
+      path: '/check-email'
+      fullPath: '/check-email'
+      preLoaderRoute: typeof CheckEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected': {
@@ -179,6 +225,8 @@ const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
+  CheckEmailRoute: CheckEmailRoute,
+  EmailVerifiedRoute: EmailVerifiedRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

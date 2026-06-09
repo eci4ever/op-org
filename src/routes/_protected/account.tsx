@@ -25,6 +25,9 @@ function RouteComponent() {
 	const [profileError, setProfileError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
+	const [verificationSent, setVerificationSent] = useState(false);
+	const [verificationSending, setVerificationSending] = useState(false);
+
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [passwordChanged, setPasswordChanged] = useState(false);
@@ -50,6 +53,25 @@ function RouteComponent() {
 			</ProtectedLayout>
 		);
 	}
+
+	const handleSendVerification = async () => {
+		const userEmail = session?.user.email;
+		if (!userEmail) return;
+
+		setVerificationSending(true);
+		setVerificationSent(false);
+
+		const { error } = await authClient.sendVerificationEmail({
+			email: userEmail,
+			callbackURL: "/email-verified",
+		});
+
+		if (!error) {
+			setVerificationSent(true);
+		}
+
+		setVerificationSending(false);
+	};
 
 	const handleProfileUpdate = async () => {
 		setSaving(true);
@@ -145,6 +167,42 @@ function RouteComponent() {
 								</Button>
 							</FieldGroup>
 						</form>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Email Verification</CardTitle>
+						<CardDescription>
+							Manage your email verification status
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium">Email</p>
+								<p className="text-sm text-muted-foreground">
+									{session?.user.email}
+								</p>
+							</div>
+							<span
+								className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${session?.user.emailVerified ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
+							>
+								{session?.user.emailVerified ? "Verified" : "Not verified"}
+							</span>
+						</div>
+						{!session?.user.emailVerified && (
+							<Button
+								onClick={handleSendVerification}
+								disabled={verificationSending || verificationSent}
+							>
+								{verificationSending
+									? "Sending..."
+									: verificationSent
+										? "Email sent"
+										: "Send verification email"}
+							</Button>
+						)}
 					</CardContent>
 				</Card>
 
