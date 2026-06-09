@@ -1,16 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { z } from "zod";
-import { LoginForm } from "#/components/login-form";
+import { SignupForm } from "#/components/signup-form";
 
-export const Route = createFileRoute("/login")({
-	validateSearch: z.object({
-		redirect: z.string().optional(),
-	}),
+export const Route = createFileRoute("/signup")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	const { redirect } = Route.useSearch();
 	return (
 		<div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
 			<div className="w-full max-w-sm">
@@ -20,7 +15,7 @@ function RouteComponent() {
 				>
 					← Back to home
 				</Link>
-				<LoginForm redirect={redirect} />
+				<SignupForm />
 			</div>
 		</div>
 	);
