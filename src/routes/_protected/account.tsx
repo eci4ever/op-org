@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { ProtectedLayout } from "#/components/protected-layout";
 import { Button } from "#/components/ui/button";
@@ -54,6 +55,21 @@ function RouteComponent() {
 	const [deleteConfirmText, setDeleteConfirmText] = useState("");
 	const [deleting, setDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const [twoFactorStep, setTwoFactorStep] = useState<
+		"idle" | "password" | "qr" | "verify" | "codes"
+	>("idle");
+	const [qrDataUrl, setQrDataUrl] = useState("");
+	const [twoFactorCode, setTwoFactorCode] = useState("");
+	const [backupCodes, setBackupCodes] = useState<string[]>([]);
+	const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+	const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+	const [disablePassword, setDisablePassword] = useState("");
+	const [setupPassword, setSetupPassword] = useState("");
+	const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+
+	const twoFactorEnabled = (session?.user as Record<string, unknown> | null)
+		?.twoFactorEnabled as boolean | undefined;
 
 	const currentSessionToken = session?.session?.token;
 
@@ -152,6 +168,98 @@ function RouteComponent() {
 			setDeleteError(error.message ?? "Failed to delete account");
 			setDeleting(false);
 		}
+	};
+
+	const handleSetupTwoFactor = async () => {
+		setSetupPassword("");
+		setTwoFactorStep("password");
+	};
+
+	const handleGenerateTotpUri = async () => {
+		if (!setupPassword) {
+			setTwoFactorError("Password is required");
+			return;
+		}
+
+		setTwoFactorLoading(true);
+		setTwoFactorError(null);
+
+		const { data, error } = await authClient.twoFactor.enable({
+			password: setupPassword,
+		});
+
+		if (error) {
+			setTwoFactorError(error.message ?? "Failed to set up two-factor");
+			setTwoFactorLoading(false);
+			return;
+		}
+
+		if (data?.totpURI) {
+			const url = await QRCode.toDataURL(data.totpURI, {
+				width: 200,
+				margin: 2,
+			});
+			setQrDataUrl(url);
+			setBackupCodes(data.backupCodes ?? []);
+			setTwoFactorStep("qr");
+		}
+
+		setTwoFactorLoading(false);
+	};
+
+	const handleVerifyTwoFactor = async () => {
+		setTwoFactorLoading(true);
+		setTwoFactorError(null);
+
+		const { data, error } = await authClient.twoFactor.verifyTotp({
+			code: twoFactorCode,
+		});
+
+		if (error) {
+			setTwoFactorError(error.message ?? "Invalid code");
+			setTwoFactorLoading(false);
+			return;
+		}
+
+		if (data) {
+			setTwoFactorStep("codes");
+		}
+
+		setTwoFactorLoading(false);
+	};
+
+	const handleDisableTwoFactor = async () => {
+		if (!disablePassword) {
+			setTwoFactorError("Password is required");
+			setTwoFactorLoading(false);
+			return;
+		}
+
+		setTwoFactorLoading(true);
+		setTwoFactorError(null);
+
+		const { error } = await authClient.twoFactor.disable({
+			password: disablePassword,
+		});
+
+		if (error) {
+			setTwoFactorError(error.message ?? "Failed to disable two-factor");
+			setTwoFactorLoading(false);
+			return;
+		}
+
+		setShowDisableConfirm(false);
+		setDisablePassword("");
+		setTwoFactorStep("idle");
+		setTwoFactorLoading(false);
+	};
+
+	const handleRegenerateBackupCodes = async () => {
+		setTwoFactorLoading(true);
+		const { data } = await authClient.twoFactor.generateBackupCodes({});
+		setBackupCodes(data?.backupCodes ?? []);
+		setTwoFactorStep("codes");
+		setTwoFactorLoading(false);
 	};
 
 	const handlePasswordChange = async () => {
@@ -381,6 +489,197 @@ function RouteComponent() {
 								onClick={handleRevokeOtherSessions}
 							>
 								{revokingOthers ? "Revoking..." : "Revoke all other sessions"}
+							</Button>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Two-Factor Authentication</CardTitle>
+						<CardDescription>
+							Add an extra layer of security to your account using an
+							authenticator app.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{twoFactorError && (
+							<p className="text-sm text-red-500">{twoFactorError}</p>
+						)}
+
+						{twoFactorEnabled ? (
+							<>
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium">Status</p>
+										<p className="text-sm text-green-600">Enabled</p>
+									</div>
+									{showDisableConfirm ? (
+										<div className="space-y-2">
+											<Input
+												type="password"
+												placeholder="Enter your password"
+												value={disablePassword}
+												onChange={(e) => setDisablePassword(e.target.value)}
+											/>
+											<div className="flex gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => {
+														setShowDisableConfirm(false);
+														setDisablePassword("");
+														setTwoFactorError(null);
+													}}
+												>
+													Cancel
+												</Button>
+												<Button
+													variant="destructive"
+													size="sm"
+													disabled={twoFactorLoading || !disablePassword}
+													onClick={handleDisableTwoFactor}
+												>
+													{twoFactorLoading
+														? "Disabling..."
+														: "Confirm disable"}
+												</Button>
+											</div>
+										</div>
+									) : (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => setShowDisableConfirm(true)}
+										>
+											Disable
+										</Button>
+									)}
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={twoFactorLoading}
+									onClick={handleRegenerateBackupCodes}
+								>
+									{twoFactorLoading
+										? "Generating..."
+										: "Regenerate backup codes"}
+								</Button>
+								{twoFactorStep === "codes" && backupCodes.length > 0 && (
+									<div className="rounded-lg border bg-yellow-50 p-3">
+										<p className="mb-2 text-sm font-medium text-yellow-800">
+											Save these backup codes in a secure place. You won't be
+											able to see them again.
+										</p>
+										<div className="space-y-1 font-mono text-sm">
+											{backupCodes.map((code) => (
+												<p key={code}>{code}</p>
+											))}
+										</div>
+									</div>
+								)}
+							</>
+						) : twoFactorStep === "qr" ? (
+							<div className="space-y-4">
+								<p className="text-sm text-muted-foreground">
+									Scan this QR code with your authenticator app (e.g. Google
+									Authenticator, Authy).
+								</p>
+								{qrDataUrl && (
+									<div className="flex justify-center">
+										<img
+											src={qrDataUrl}
+											alt="TOTP QR Code"
+											className="rounded-lg"
+										/>
+									</div>
+								)}
+								<Field>
+									<FieldLabel htmlFor="setup-code">
+										Enter the 6-digit code from your authenticator app
+									</FieldLabel>
+									<Input
+										id="setup-code"
+										placeholder="000000"
+										value={twoFactorCode}
+										onChange={(e) => setTwoFactorCode(e.target.value)}
+									/>
+								</Field>
+								<div className="flex gap-2">
+								<Button
+									variant="outline"
+									onClick={() => {
+										setTwoFactorStep("idle");
+										setTwoFactorCode("");
+										setTwoFactorError(null);
+										setSetupPassword("");
+									}}
+								>
+									Cancel
+								</Button>
+									<Button
+										disabled={twoFactorLoading || twoFactorCode.length < 6}
+										onClick={handleVerifyTwoFactor}
+									>
+										{twoFactorLoading ? "Verifying..." : "Verify"}
+									</Button>
+								</div>
+							</div>
+						) : twoFactorStep === "codes" && backupCodes.length > 0 ? (
+							<div className="space-y-4">
+								<div className="rounded-lg border bg-yellow-50 p-3">
+									<p className="mb-2 text-sm font-medium text-yellow-800">
+										Save these backup codes in a secure place. You won't be able
+										to see them again.
+									</p>
+									<div className="space-y-1 font-mono text-sm">
+										{backupCodes.map((code) => (
+											<p key={code}>{code}</p>
+										))}
+									</div>
+								</div>
+								<Button onClick={() => setTwoFactorStep("idle")}>Done</Button>
+							</div>
+						) : twoFactorStep === "password" ? (
+							<div className="space-y-4">
+								<Field>
+									<FieldLabel htmlFor="setup-password">
+										Enter your password to continue
+									</FieldLabel>
+									<Input
+										id="setup-password"
+										type="password"
+										placeholder="Password"
+										value={setupPassword}
+										onChange={(e) => setSetupPassword(e.target.value)}
+									/>
+								</Field>
+								<div className="flex gap-2">
+									<Button
+										variant="outline"
+										onClick={() => {
+											setTwoFactorStep("idle");
+											setSetupPassword("");
+											setTwoFactorError(null);
+										}}
+									>
+										Cancel
+									</Button>
+									<Button
+										disabled={twoFactorLoading || !setupPassword}
+										onClick={handleGenerateTotpUri}
+									>
+										{twoFactorLoading ? "Loading..." : "Continue"}
+									</Button>
+								</div>
+							</div>
+						) : (
+							<Button
+								disabled={twoFactorLoading}
+								onClick={handleSetupTwoFactor}
+							>
+								{twoFactorLoading ? "Loading..." : "Set up two-factor"}
 							</Button>
 						)}
 					</CardContent>
