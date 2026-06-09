@@ -6,7 +6,7 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { useSidebar } from "#/components/ui/sidebar";
+import { SidebarMenuButton, useSidebar } from "#/components/ui/sidebar";
 import { authClient } from "#/lib/auth-client";
 
 export function TeamSwitcher() {
@@ -19,23 +19,22 @@ export function TeamSwitcher() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
-					className="flex h-12 w-full items-center gap-2 px-4 text-left hover:bg-accent transition-colors rounded-lg"
+				<SidebarMenuButton
+					size="lg"
+					tooltip={currentOrg.name}
+					className="rounded-lg"
 				>
 					<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white">
 						<BriefcaseBusiness className="size-4" />
 					</div>
-					<div className="min-w-0 flex-1">
-						<div className="truncate text-sm font-medium leading-tight">
-							{currentOrg.name}
-						</div>
-						<div className="truncate text-xs text-muted-foreground">
+					<div className="grid flex-1 text-left text-sm leading-tight">
+						<span className="truncate font-medium">{currentOrg.name}</span>
+						<span className="truncate text-xs text-muted-foreground">
 							Enterprise
-						</div>
+						</span>
 					</div>
-					<ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
-				</button>
+					<ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
+				</SidebarMenuButton>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"

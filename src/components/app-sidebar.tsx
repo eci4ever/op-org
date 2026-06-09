@@ -8,6 +8,8 @@ import {
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuItem,
 	SidebarRail,
 } from "#/components/ui/sidebar.tsx";
 import { authClient } from "#/lib/auth-client.ts";
@@ -35,7 +37,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 	return (
 		<Sidebar collapsible="icon" {...props}>
 			<SidebarHeader>
-				<TeamSwitcher />
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<TeamSwitcher />
+					</SidebarMenuItem>
+				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />
