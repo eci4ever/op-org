@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button.tsx";
 import {
 	Card,
@@ -51,10 +52,16 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 			},
 			{
 				onSuccess: async () => {
+					toast.success(
+						"Account created! Check your email to verify.",
+					);
 					await authClient.signOut();
 					navigate({ to: "/check-email" });
 				},
 				onError: (ctx) => {
+					toast.error(
+						ctx.error.message ?? "An unexpected error occurred",
+					);
 					setError(ctx.error.message ?? "An unexpected error occurred");
 				},
 			},

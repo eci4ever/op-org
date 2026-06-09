@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -35,12 +36,14 @@ function RouteComponent() {
 			});
 
 			if (error) {
+				toast.error(error.message ?? "Invalid backup code");
 				setError(error.message ?? "Invalid backup code");
 				setLoading(false);
 				return;
 			}
 
 			if (data) {
+				toast.success("Signed in with backup code");
 				navigate({ to: "/dashboard" });
 			}
 		} else {
@@ -50,12 +53,14 @@ function RouteComponent() {
 			});
 
 			if (error) {
+				toast.error(error.message ?? "Invalid code");
 				setError(error.message ?? "Invalid code");
 				setLoading(false);
 				return;
 			}
 
 			if (data) {
+				toast.success("Verified successfully");
 				navigate({ to: "/dashboard" });
 			}
 		}

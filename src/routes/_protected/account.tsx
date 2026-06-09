@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
 import { Button } from "#/components/ui/button";
 import {
@@ -32,8 +33,6 @@ function RouteComponent() {
 	const { data: session, isPending } = authClient.useSession();
 	const [name, setName] = useState("");
 	const [image, setImage] = useState("");
-	const [profileSaved, setProfileSaved] = useState(false);
-	const [profileError, setProfileError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
 	const [verificationSent, setVerificationSent] = useState(false);
@@ -41,8 +40,6 @@ function RouteComponent() {
 
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
-	const [passwordChanged, setPasswordChanged] = useState(false);
-	const [passwordError, setPasswordError] = useState<string | null>(null);
 	const [changing, setChanging] = useState(false);
 
 	const [sessions, setSessions] = useState<Session[]>([]);
@@ -54,7 +51,6 @@ function RouteComponent() {
 	const [deletePassword, setDeletePassword] = useState("");
 	const [deleteConfirmText, setDeleteConfirmText] = useState("");
 	const [deleting, setDeleting] = useState(false);
-	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const [twoFactorStep, setTwoFactorStep] = useState<
 		"idle" | "password" | "qr" | "verify" | "codes"
@@ -73,7 +69,6 @@ function RouteComponent() {
 	const [deletingPasskeyId, setDeletingPasskeyId] = useState<string | null>(
 		null,
 	);
-	const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
 	const { data: passkeys, refetch: refetchPasskeys } =
 		authClient.useListPasskeys();
@@ -134,15 +129,13 @@ function RouteComponent() {
 
 	const handleProfileUpdate = async () => {
 		setSaving(true);
-		setProfileSaved(false);
-		setProfileError(null);
 
 		const { error } = await authClient.updateUser({ name, image });
 
 		if (error) {
-			setProfileError(error.message ?? "Failed to update profile");
+			toast.error(error.message ?? "Failed to update profile");
 		} else {
-			setProfileSaved(true);
+			toast.success("Profile updated");
 		}
 
 		setSaving(false);
@@ -150,16 +143,26 @@ function RouteComponent() {
 
 	const handleRevokeSession = async (token: string) => {
 		setRevokingToken(token);
-		await authClient.revokeSession({ token });
-		setSessions((prev) => prev.filter((s) => s.token !== token));
+		const { error } = await authClient.revokeSession({ token });
+		if (error) {
+			toast.error(error.message ?? "Failed to revoke session");
+		} else {
+			toast.success("Session revoked");
+			setSessions((prev) => prev.filter((s) => s.token !== token));
+		}
 		setRevokingToken(null);
 	};
 
 	const handleRevokeOtherSessions = async () => {
 		setRevokingOthers(true);
-		await authClient.revokeOtherSessions();
-		const { data } = await authClient.listSessions();
-		setSessions(data ?? []);
+		const { error } = await authClient.revokeOtherSessions();
+		if (error) {
+			toast.error(error.message ?? "Failed to revoke sessions");
+		} else {
+			toast.success("Other sessions revoked");
+			const { data } = await authClient.listSessions();
+			setSessions(data ?? []);
+		}
 		setRevokingOthers(false);
 	};
 
@@ -167,7 +170,6 @@ function RouteComponent() {
 		if (deleteConfirmText !== "DELETE") return;
 
 		setDeleting(true);
-		setDeleteError(null);
 
 		const { error } = await authClient.deleteUser({
 			password: deletePassword,
@@ -175,8 +177,10 @@ function RouteComponent() {
 		});
 
 		if (error) {
-			setDeleteError(error.message ?? "Failed to delete account");
+			toast.error(error.message ?? "Failed to delete account");
 			setDeleting(false);
+		} else {
+			toast.success("Account deleted");
 		}
 	};
 
@@ -253,11 +257,12 @@ function RouteComponent() {
 		});
 
 		if (error) {
-			setTwoFactorError(error.message ?? "Failed to disable two-factor");
+			toast.error(error.message ?? "Failed to disable two-factor");
 			setTwoFactorLoading(false);
 			return;
 		}
 
+		toast.success("Two-factor disabled");
 		setShowDisableConfirm(false);
 		setDisablePassword("");
 		setTwoFactorStep("idle");
@@ -274,19 +279,19 @@ function RouteComponent() {
 
 	const handleAddPasskey = async () => {
 		setAddingPasskey(true);
-		setPasskeyError(null);
 
 		const { data, error } = await authClient.passkey.addPasskey({
 			name: passkeyName || undefined,
 		});
 
 		if (error) {
-			setPasskeyError(error.message ?? "Failed to register passkey");
+			toast.error(error.message ?? "Failed to register passkey");
 			setAddingPasskey(false);
 			return;
 		}
 
 		if (data) {
+			toast.success("Passkey registered");
 			setPasskeyName("");
 			refetchPasskeys();
 		}
@@ -296,7 +301,6 @@ function RouteComponent() {
 
 	const handleDeletePasskey = async (id: string) => {
 		setDeletingPasskeyId(id);
-		setPasskeyError(null);
 
 		try {
 			const res = await fetch("/api/auth/passkey/delete-passkey", {
@@ -310,9 +314,10 @@ function RouteComponent() {
 				throw new Error(json.error?.message ?? "Failed to delete passkey");
 			}
 
+			toast.success("Passkey removed");
 			refetchPasskeys();
 		} catch (err) {
-			setPasskeyError(
+			toast.error(
 				err instanceof Error ? err.message : "Failed to delete passkey",
 			);
 		}
@@ -322,13 +327,11 @@ function RouteComponent() {
 
 	const handlePasswordChange = async () => {
 		if (newPassword.length < 8) {
-			setPasswordError("Password must be at least 8 characters");
+			toast.error("Password must be at least 8 characters");
 			return;
 		}
 
 		setChanging(true);
-		setPasswordChanged(false);
-		setPasswordError(null);
 
 		const { error } = await authClient.changePassword({
 			currentPassword,
@@ -336,9 +339,9 @@ function RouteComponent() {
 		});
 
 		if (error) {
-			setPasswordError(error.message ?? "Failed to change password");
+			toast.error(error.message ?? "Failed to change password");
 		} else {
-			setPasswordChanged(true);
+			toast.success("Password changed");
 			setCurrentPassword("");
 			setNewPassword("");
 		}
@@ -385,14 +388,6 @@ function RouteComponent() {
 										onChange={(e) => setImage(e.target.value)}
 									/>
 								</Field>
-								{profileError && (
-									<p className="text-sm text-red-500">{profileError}</p>
-								)}
-								{profileSaved && (
-									<p className="text-sm text-green-600">
-										Profile updated successfully
-									</p>
-								)}
 								<Button type="submit" disabled={saving}>
 									{saving ? "Saving..." : "Save"}
 								</Button>
@@ -470,14 +465,6 @@ function RouteComponent() {
 										onChange={(e) => setNewPassword(e.target.value)}
 									/>
 								</Field>
-								{passwordError && (
-									<p className="text-sm text-red-500">{passwordError}</p>
-								)}
-								{passwordChanged && (
-									<p className="text-sm text-green-600">
-										Password changed successfully
-									</p>
-								)}
 								<Button type="submit" disabled={changing}>
 									{changing ? "Changing..." : "Change Password"}
 								</Button>
@@ -752,10 +739,6 @@ function RouteComponent() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						{passkeyError && (
-							<p className="text-sm text-red-500">{passkeyError}</p>
-						)}
-
 						{passkeys && passkeys.length > 0 && (
 							<div className="space-y-2">
 								{passkeys.map((pk) => (
@@ -858,9 +841,6 @@ function RouteComponent() {
 											onChange={(e) => setDeleteConfirmText(e.target.value)}
 										/>
 									</Field>
-									{deleteError && (
-										<p className="text-sm text-red-600">{deleteError}</p>
-									)}
 									<div className="flex gap-2">
 										<Button
 											variant="outline"
@@ -868,7 +848,6 @@ function RouteComponent() {
 												setShowDeleteConfirm(false);
 												setDeletePassword("");
 												setDeleteConfirmText("");
-												setDeleteError(null);
 											}}
 										>
 											Cancel
