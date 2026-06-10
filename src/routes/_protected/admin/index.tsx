@@ -446,110 +446,6 @@ function RouteComponent() {
 								Delete
 							</Button>
 						</div>
-
-						{showBanDialog === user.id && (
-							<Dialog
-								open
-								onOpenChange={() => setShowBanDialog(null)}
-							>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Ban User</DialogTitle>
-										<DialogDescription>
-											{user.name} will be banned from the
-											platform.
-										</DialogDescription>
-									</DialogHeader>
-									<FieldGroup>
-										<Field>
-											<FieldLabel htmlFor="ban-reason">
-												Reason (optional)
-											</FieldLabel>
-											<Input
-												id="ban-reason"
-												value={banReason}
-												onChange={(e) =>
-													setBanReason(e.target.value)
-												}
-												placeholder="Spamming"
-											/>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="ban-expires">
-												Expires in seconds (optional)
-											</FieldLabel>
-											<Input
-												id="ban-expires"
-												type="number"
-												value={banExpiresIn}
-												onChange={(e) =>
-													setBanExpiresIn(e.target.value)
-												}
-												placeholder="604800 (7 days)"
-											/>
-										</Field>
-									</FieldGroup>
-									<DialogFooter>
-										<Button
-											variant="outline"
-											onClick={() => {
-												setShowBanDialog(null);
-												setBanReason("");
-												setBanExpiresIn("");
-											}}
-										>
-											Cancel
-										</Button>
-										<Button
-											variant="destructive"
-											disabled={banningId === user.id}
-											onClick={() => handleBan(user.id)}
-										>
-											{banningId === user.id
-												? "Banning..."
-												: "Ban"}
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						)}
-
-						{showDeleteDialog === user.id && (
-							<Dialog
-								open
-								onOpenChange={() => setShowDeleteDialog(null)}
-							>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Delete User</DialogTitle>
-										<DialogDescription>
-											Are you sure you want to delete{" "}
-											{user.name}? This action cannot be
-											undone.
-										</DialogDescription>
-									</DialogHeader>
-									<DialogFooter>
-										<Button
-											variant="outline"
-											onClick={() =>
-												setShowDeleteDialog(null)
-											}
-										>
-											Cancel
-										</Button>
-										<Button
-											variant="destructive"
-											disabled={deletingId === user.id}
-											onClick={() => handleDelete(user.id)}
-										>
-											{deletingId === user.id
-												? "Deleting..."
-												: "Delete"}
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						)}
 					</>
 				);
 			},
@@ -901,6 +797,117 @@ function RouteComponent() {
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
+
+				{(() => {
+					const user = users.find((u) => u.id === showBanDialog);
+					if (!user) return null;
+					return (
+						<Dialog open onOpenChange={() => setShowBanDialog(null)}>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Ban User</DialogTitle>
+									<DialogDescription>
+										{user.name} will be banned from the
+										platform.
+									</DialogDescription>
+								</DialogHeader>
+								<FieldGroup>
+									<Field>
+										<FieldLabel htmlFor="ban-reason">
+											Reason (optional)
+										</FieldLabel>
+										<Input
+											id="ban-reason"
+											value={banReason}
+											onChange={(e) =>
+												setBanReason(e.target.value)
+											}
+											placeholder="Spamming"
+										/>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="ban-expires">
+											Expires in seconds (optional)
+										</FieldLabel>
+										<Input
+											id="ban-expires"
+											type="number"
+											value={banExpiresIn}
+											onChange={(e) =>
+												setBanExpiresIn(e.target.value)
+											}
+											placeholder="604800 (7 days)"
+										/>
+									</Field>
+								</FieldGroup>
+								<DialogFooter>
+									<Button
+										variant="outline"
+										onClick={() => {
+											setShowBanDialog(null);
+											setBanReason("");
+											setBanExpiresIn("");
+										}}
+									>
+										Cancel
+									</Button>
+									<Button
+										variant="destructive"
+										disabled={banningId === user.id}
+										onClick={() => handleBan(user.id)}
+									>
+										{banningId === user.id
+											? "Banning..."
+											: "Ban"}
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+					);
+				})()}
+
+				{(() => {
+					const user = users.find(
+						(u) => u.id === showDeleteDialog,
+					);
+					if (!user) return null;
+					return (
+						<Dialog
+							open
+							onOpenChange={() => setShowDeleteDialog(null)}
+						>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Delete User</DialogTitle>
+									<DialogDescription>
+										Are you sure you want to delete{" "}
+										{user.name}? This action cannot be
+										undone.
+									</DialogDescription>
+								</DialogHeader>
+								<DialogFooter>
+									<Button
+										variant="outline"
+										onClick={() =>
+											setShowDeleteDialog(null)
+										}
+									>
+										Cancel
+									</Button>
+									<Button
+										variant="destructive"
+										disabled={deletingId === user.id}
+										onClick={() => handleDelete(user.id)}
+									>
+										{deletingId === user.id
+											? "Deleting..."
+											: "Delete"}
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+					);
+				})()}
 			</div>
 		</ProtectedLayout>
 	);
