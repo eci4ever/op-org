@@ -7,7 +7,7 @@ POST {{baseUrl}}/sign-up/email
 Content-Type: application/json
 
 {
-  "email": "admin@resend.dev",
+  "email": "admin@example.com",
   "password": "password",
   "name": "Admin User"
 }
@@ -17,7 +17,7 @@ POST {{baseUrl}}/sign-in/email
 Content-Type: application/json
 
 {
-  "email": "admin@resend.dev",
+  "email": "admin@example.com",
   "password": "password"
 }
 
