@@ -206,15 +206,15 @@ export function LoginForm({
 								</Button>
 								<FieldDescription className="text-center">
 									Don&apos;t have an account?{" "}
-									<a
-										href="/signup"
+									<Link
+										to="/signup"
 										onClick={(e) => {
 											e.preventDefault();
 											navigate({ to: "/signup" });
 										}}
 									>
 										Sign up
-									</a>
+									</Link>
 								</FieldDescription>
 							</Field>
 						</FieldGroup>

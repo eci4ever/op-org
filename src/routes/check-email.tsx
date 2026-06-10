@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "#/components/ui/button";
 
 export const Route = createFileRoute("/check-email")({
@@ -22,7 +22,7 @@ function RouteComponent() {
 				</p>
 				<div className="flex items-center justify-center gap-4">
 					<Button asChild>
-						<a href="/">Back to Home</a>
+						<Link to="/">Back to Home</Link>
 					</Button>
 				</div>
 			</div>

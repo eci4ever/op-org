@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button.tsx";
@@ -146,18 +146,9 @@ export function SignupForm({
 								</Button>
 								<FieldDescription className="px-6 text-center">
 									Already have an account?{" "}
-									<a
-										href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"}
-										onClick={(e) => {
-											e.preventDefault();
-											navigate({
-												to: "/login",
-												search: redirect ? { redirect } : undefined,
-											});
-										}}
-									>
+									<Link to="/login">
 										Sign in
-									</a>
+									</Link>
 								</FieldDescription>
 							</Field>
 						</FieldGroup>

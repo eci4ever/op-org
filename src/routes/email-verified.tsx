@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { Button } from "#/components/ui/button";
 import { authClient } from "#/lib/auth-client";
@@ -53,15 +53,15 @@ function RouteComponent() {
 				<div className="flex items-center justify-center gap-4">
 					{session ? (
 						<Button asChild>
-							<a href="/dashboard">Go to Dashboard</a>
+							<Link to="/dashboard">Go to Dashboard</Link>
 						</Button>
 					) : (
 						<>
 							<Button asChild>
-								<a href="/login">Sign in</a>
+								<Link to="/login">Sign in</Link>
 							</Button>
 							<Button variant="outline" asChild>
-								<a href="/">Home</a>
+								<Link to="/">Home</Link>
 							</Button>
 						</>
 					)}
