@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Search, UserPlus } from "lucide-react";
+import {
+	type ColumnDef,
+	type SortingState,
+	flexRender,
+	getCoreRowModel,
+	getPaginationRowModel,
+	getSortedRowModel,
+	useReactTable,
+} from "@tanstack/react-table";
+import { ArrowUpDown, ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
@@ -30,6 +39,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "#/components/ui/table";
 import { authClient } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/_protected/admin/")({
@@ -55,6 +72,10 @@ function RouteComponent() {
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState("");
 	const [searchField, setSearchField] = useState<"name" | "email">("name");
+	const [roleFilter, setRoleFilter] = useState<string>("all");
+
+	const [sorting, setSorting] = useState<SortingState>([]);
+	const [pageSize, setPageSize] = useState(10);
 
 	const [banningId, setBanningId] = useState<string | null>(null);
 	const [banReason, setBanReason] = useState("");
@@ -78,7 +99,10 @@ function RouteComponent() {
 				searchValue: search || undefined,
 				searchField: search ? searchField : undefined,
 				searchOperator: "contains",
-				limit: 50,
+				filterField: roleFilter !== "all" ? "role" : undefined,
+				filterValue: roleFilter !== "all" ? roleFilter : undefined,
+				filterOperator: roleFilter !== "all" ? "eq" : undefined,
+				limit: 100,
 			},
 		});
 		if (error) {
@@ -93,11 +117,6 @@ function RouteComponent() {
 	useEffect(() => {
 		fetchUsers();
 	}, []);
-
-	const handleSearch = (e: React.FormEvent) => {
-		e.preventDefault();
-		fetchUsers();
-	};
 
 	const handleSetRole = async (userId: string, role: "user" | "admin") => {
 		const { error } = await authClient.admin.setRole({ userId, role });
@@ -196,6 +215,269 @@ function RouteComponent() {
 		}
 		setCreating(false);
 	};
+
+	const columns: ColumnDef<User>[] = [
+		{
+			accessorKey: "name",
+			header: ({ column }) => (
+				<button
+					type="button"
+					className="inline-flex items-center gap-1 font-medium"
+					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+				>
+					Name
+					<ArrowUpDown className="size-3.5" />
+				</button>
+			),
+			cell: ({ row }) => {
+				const user = row.original;
+				return (
+					<div className="flex items-center gap-2">
+						{user.image ? (
+							<img
+								src={user.image}
+								alt=""
+								className="size-7 rounded-full object-cover"
+							/>
+						) : (
+							<div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+								{user.name.charAt(0).toUpperCase()}
+							</div>
+						)}
+						<span className="font-medium">{user.name}</span>
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "email",
+			header: ({ column }) => (
+				<button
+					type="button"
+					className="inline-flex items-center gap-1 font-medium"
+					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+				>
+					Email
+					<ArrowUpDown className="size-3.5" />
+				</button>
+			),
+			cell: ({ row }) => (
+				<span className="text-muted-foreground">{row.original.email}</span>
+			),
+		},
+		{
+			accessorKey: "role",
+			header: ({ column }) => (
+				<button
+					type="button"
+					className="inline-flex items-center gap-1 font-medium"
+					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+				>
+					Role
+					<ArrowUpDown className="size-3.5" />
+				</button>
+			),
+			cell: ({ row }) => {
+				const user = row.original;
+				return (
+					<Select
+						value={user.role ?? "user"}
+						onValueChange={(role) =>
+							handleSetRole(user.id, role as "user" | "admin")
+						}
+					>
+						<SelectTrigger className="h-8 w-24">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="user">User</SelectItem>
+							<SelectItem value="admin">Admin</SelectItem>
+						</SelectContent>
+					</Select>
+				);
+			},
+		},
+		{
+			accessorKey: "banned",
+			header: "Status",
+			cell: ({ row }) => {
+				const banned = row.original.banned;
+				return banned ? (
+					<Badge variant="destructive">Banned</Badge>
+				) : (
+					<Badge variant="default">Active</Badge>
+				);
+			},
+		},
+		{
+			id: "actions",
+			header: "Actions",
+			cell: ({ row }) => {
+				const user = row.original;
+				return (
+					<>
+						<div className="flex flex-wrap gap-1.5">
+							{user.banned ? (
+								<Button
+									variant="outline"
+									size="xs"
+									onClick={() => handleUnban(user.id)}
+								>
+									Unban
+								</Button>
+							) : (
+								<Button
+									variant="outline"
+									size="xs"
+									onClick={() => setShowBanDialog(user.id)}
+								>
+									Ban
+								</Button>
+							)}
+							<Button
+								variant="outline"
+								size="xs"
+								onClick={() => handleImpersonate(user.id)}
+							>
+								Impersonate
+							</Button>
+							<Button
+								variant="destructive"
+								size="xs"
+								onClick={() => setShowDeleteDialog(user.id)}
+							>
+								Delete
+							</Button>
+						</div>
+
+						{showBanDialog === user.id && (
+							<Dialog
+								open
+								onOpenChange={() => setShowBanDialog(null)}
+							>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Ban User</DialogTitle>
+										<DialogDescription>
+											{user.name} will be banned from the
+											platform.
+										</DialogDescription>
+									</DialogHeader>
+									<FieldGroup>
+										<Field>
+											<FieldLabel htmlFor="ban-reason">
+												Reason (optional)
+											</FieldLabel>
+											<Input
+												id="ban-reason"
+												value={banReason}
+												onChange={(e) =>
+													setBanReason(e.target.value)
+												}
+												placeholder="Spamming"
+											/>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="ban-expires">
+												Expires in seconds (optional)
+											</FieldLabel>
+											<Input
+												id="ban-expires"
+												type="number"
+												value={banExpiresIn}
+												onChange={(e) =>
+													setBanExpiresIn(e.target.value)
+												}
+												placeholder="604800 (7 days)"
+											/>
+										</Field>
+									</FieldGroup>
+									<DialogFooter>
+										<Button
+											variant="outline"
+											onClick={() => {
+												setShowBanDialog(null);
+												setBanReason("");
+												setBanExpiresIn("");
+											}}
+										>
+											Cancel
+										</Button>
+										<Button
+											variant="destructive"
+											disabled={banningId === user.id}
+											onClick={() => handleBan(user.id)}
+										>
+											{banningId === user.id
+												? "Banning..."
+												: "Ban"}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						)}
+
+						{showDeleteDialog === user.id && (
+							<Dialog
+								open
+								onOpenChange={() => setShowDeleteDialog(null)}
+							>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Delete User</DialogTitle>
+										<DialogDescription>
+											Are you sure you want to delete{" "}
+											{user.name}? This action cannot be
+											undone.
+										</DialogDescription>
+									</DialogHeader>
+									<DialogFooter>
+										<Button
+											variant="outline"
+											onClick={() =>
+												setShowDeleteDialog(null)
+											}
+										>
+											Cancel
+										</Button>
+										<Button
+											variant="destructive"
+											disabled={deletingId === user.id}
+											onClick={() => handleDelete(user.id)}
+										>
+											{deletingId === user.id
+												? "Deleting..."
+												: "Delete"}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						)}
+					</>
+				);
+			},
+		},
+	];
+
+	const table = useReactTable({
+		data: users,
+		columns,
+		state: {
+			sorting,
+		},
+		onSortingChange: setSorting,
+		initialState: {
+			pagination: {
+				pageSize,
+			},
+		},
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		getPaginationRowModel: getPaginationRowModel(),
+	});
+
+	const pageIndex = table.getState().pagination.pageIndex;
+	const pageCount = table.getPageCount();
 
 	return (
 		<ProtectedLayout
@@ -296,7 +578,7 @@ function RouteComponent() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<form onSubmit={handleSearch} className="flex gap-2">
+						<div className="flex gap-2">
 							<div className="relative flex-1">
 								<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
@@ -318,8 +600,18 @@ function RouteComponent() {
 									<SelectItem value="email">Email</SelectItem>
 								</SelectContent>
 							</Select>
-							<Button type="submit">Search</Button>
-						</form>
+							<Select value={roleFilter} onValueChange={setRoleFilter}>
+								<SelectTrigger className="w-32">
+									<SelectValue placeholder="Role" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All roles</SelectItem>
+									<SelectItem value="admin">Admin</SelectItem>
+									<SelectItem value="user">User</SelectItem>
+								</SelectContent>
+							</Select>
+							<Button onClick={fetchUsers}>Search</Button>
+						</div>
 
 						{loading ? (
 							<p className="py-8 text-center text-sm text-muted-foreground">
@@ -330,206 +622,88 @@ function RouteComponent() {
 								No users found.
 							</p>
 						) : (
-							<div className="overflow-x-auto">
-								<table className="w-full text-sm">
-									<thead>
-										<tr className="border-b text-left text-muted-foreground">
-											<th className="pb-3 font-medium">Name</th>
-											<th className="pb-3 font-medium">Email</th>
-											<th className="pb-3 font-medium">Role</th>
-											<th className="pb-3 font-medium">Status</th>
-											<th className="pb-3 font-medium">Actions</th>
-										</tr>
-									</thead>
-									<tbody>
-										{users.map((user) => (
-											<tr key={user.id} className="border-b last:border-0">
-												<td className="py-3 pr-4">
-													<div className="flex items-center gap-2">
-														{user.image ? (
-															<img
-																src={user.image}
-																alt=""
-																className="size-7 rounded-full object-cover"
-															/>
-														) : (
-															<div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-																{user.name.charAt(0).toUpperCase()}
-															</div>
-														)}
-														<span className="font-medium">{user.name}</span>
-													</div>
-												</td>
-												<td className="py-3 pr-4 text-muted-foreground">
-													{user.email}
-												</td>
-												<td className="py-3 pr-4">
-													<Select
-														value={user.role ?? "user"}
-														onValueChange={(role) =>
-															handleSetRole(user.id, role as "user" | "admin")
-														}
-													>
-														<SelectTrigger className="h-8 w-24">
-															<SelectValue />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="user">User</SelectItem>
-															<SelectItem value="admin">Admin</SelectItem>
-														</SelectContent>
-													</Select>
-												</td>
-												<td className="py-3 pr-4">
-													{user.banned ? (
-														<Badge variant="destructive">Banned</Badge>
-													) : (
-														<Badge variant="default">Active</Badge>
-													)}
-												</td>
-												<td className="py-3">
-													<div className="flex flex-wrap gap-1.5">
-														{user.banned ? (
-															<Button
-																variant="outline"
-																size="xs"
-																onClick={() => handleUnban(user.id)}
-															>
-																Unban
-															</Button>
-														) : (
-															<Button
-																variant="outline"
-																size="xs"
-																onClick={() => setShowBanDialog(user.id)}
-															>
-																Ban
-															</Button>
-														)}
-														<Button
-															variant="outline"
-															size="xs"
-															onClick={() => handleImpersonate(user.id)}
-														>
-															Impersonate
-														</Button>
-														<Button
-															variant="destructive"
-															size="xs"
-															onClick={() => setShowDeleteDialog(user.id)}
-														>
-															Delete
-														</Button>
-													</div>
-
-													{showBanDialog === user.id && (
-														<Dialog
-															open
-															onOpenChange={() => setShowBanDialog(null)}
-														>
-															<DialogContent>
-																<DialogHeader>
-																	<DialogTitle>Ban User</DialogTitle>
-																	<DialogDescription>
-																		{user.name} will be banned from the
-																		platform.
-																	</DialogDescription>
-																</DialogHeader>
-																<FieldGroup>
-																	<Field>
-																		<FieldLabel htmlFor="ban-reason">
-																			Reason (optional)
-																		</FieldLabel>
-																		<Input
-																			id="ban-reason"
-																			value={banReason}
-																			onChange={(e) =>
-																				setBanReason(e.target.value)
-																			}
-																			placeholder="Spamming"
-																		/>
-																	</Field>
-																	<Field>
-																		<FieldLabel htmlFor="ban-expires">
-																			Expires in seconds (optional)
-																		</FieldLabel>
-																		<Input
-																			id="ban-expires"
-																			type="number"
-																			value={banExpiresIn}
-																			onChange={(e) =>
-																				setBanExpiresIn(e.target.value)
-																			}
-																			placeholder="604800 (7 days)"
-																		/>
-																	</Field>
-																</FieldGroup>
-																<DialogFooter>
-																	<Button
-																		variant="outline"
-																		onClick={() => {
-																			setShowBanDialog(null);
-																			setBanReason("");
-																			setBanExpiresIn("");
-																		}}
-																	>
-																		Cancel
-																	</Button>
-																	<Button
-																		variant="destructive"
-																		disabled={banningId === user.id}
-																		onClick={() => handleBan(user.id)}
-																	>
-																		{banningId === user.id
-																			? "Banning..."
-																			: "Ban"}
-																	</Button>
-																</DialogFooter>
-															</DialogContent>
-														</Dialog>
-													)}
-
-													{showDeleteDialog === user.id && (
-														<Dialog
-															open
-															onOpenChange={() => setShowDeleteDialog(null)}
-														>
-															<DialogContent>
-																<DialogHeader>
-																	<DialogTitle>Delete User</DialogTitle>
-																	<DialogDescription>
-																		Are you sure you want to delete{" "}
-																		{user.name}? This action cannot be
-																		undone.
-																	</DialogDescription>
-																</DialogHeader>
-																<DialogFooter>
-																	<Button
-																		variant="outline"
-																		onClick={() =>
-																			setShowDeleteDialog(null)
-																		}
-																	>
-																		Cancel
-																	</Button>
-																	<Button
-																		variant="destructive"
-																		disabled={deletingId === user.id}
-																		onClick={() => handleDelete(user.id)}
-																	>
-																		{deletingId === user.id
-																			? "Deleting..."
-																			: "Delete"}
-																	</Button>
-																</DialogFooter>
-															</DialogContent>
-														</Dialog>
-													)}
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
-							</div>
+							<>
+								<div className="overflow-x-auto">
+									<Table>
+										<TableHeader>
+											{table.getHeaderGroups().map((headerGroup) => (
+												<TableRow key={headerGroup.id}>
+													{headerGroup.headers.map((header) => (
+														<TableHead key={header.id}>
+															{header.isPlaceholder
+																? null
+																: flexRender(
+																		header.column.columnDef.header,
+																		header.getContext(),
+																	)}
+														</TableHead>
+													))}
+												</TableRow>
+											))}
+										</TableHeader>
+										<TableBody>
+											{table.getRowModel().rows.map((row) => (
+												<TableRow key={row.id}>
+													{row.getVisibleCells().map((cell) => (
+														<TableCell key={cell.id}>
+															{flexRender(
+																cell.column.columnDef.cell,
+																cell.getContext(),
+															)}
+														</TableCell>
+													))}
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</div>
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<span className="text-sm text-muted-foreground">
+											Rows per page
+										</span>
+										<Select
+											value={String(pageSize)}
+											onValueChange={(v) => {
+												setPageSize(Number(v));
+												table.setPageSize(Number(v));
+											}}
+										>
+											<SelectTrigger className="h-8 w-16">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="10">10</SelectItem>
+												<SelectItem value="25">25</SelectItem>
+												<SelectItem value="50">50</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="flex items-center gap-2">
+										<span className="text-sm text-muted-foreground">
+											Page {pageIndex + 1} of {pageCount}
+										</span>
+										<div className="flex gap-1">
+											<Button
+												variant="outline"
+												size="xs"
+												onClick={() => table.previousPage()}
+												disabled={!table.getCanPreviousPage()}
+											>
+												<ChevronLeft className="size-4" />
+											</Button>
+											<Button
+												variant="outline"
+												size="xs"
+												onClick={() => table.nextPage()}
+												disabled={!table.getCanNextPage()}
+											>
+												<ChevronRight className="size-4" />
+											</Button>
+										</div>
+									</div>
+								</div>
+							</>
 						)}
 					</CardContent>
 				</Card>
