@@ -40,6 +40,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { ProtectedLayout } from "#/components/protected-layout";
 import { authClient } from "#/lib/auth-client";
+import { addOrgOwner } from "#/lib/auth.functions";
 
 export const Route = createFileRoute("/_protected/organization")({
 	component: RouteComponent,
@@ -70,31 +71,46 @@ function initials(name: string) {
 function OverviewTab({
 	org,
 	orgId,
+	isPlatformAdmin,
 }: {
 	org: { name: string; slug: string };
 	orgId: string;
+	isPlatformAdmin: boolean;
 }) {
 	const { data: activeOrg } = authClient.useActiveOrganization();
 	const members = (activeOrg as any)?.members as MemberData[] | undefined;
 
 	const [inviteEmail, setInviteEmail] = useState("");
-	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
+	const [inviteRole, setInviteRole] = useState("member");
 	const [inviting, setInviting] = useState(false);
 
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!inviteEmail.trim()) return;
 		setInviting(true);
-		const { error } = await authClient.organization.inviteMember({
-			organizationId: orgId,
-			email: inviteEmail.trim(),
-			role: inviteRole,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to send invitation");
+
+		if (inviteRole === "owner") {
+			const { error } = await addOrgOwner({
+				data: { organizationId: orgId, email: inviteEmail.trim() },
+			});
+			if (error) {
+				toast.error(error.message ?? "Failed to add owner");
+			} else {
+				toast.success("Owner added");
+				setInviteEmail("");
+			}
 		} else {
-			toast.success("Invitation sent");
-			setInviteEmail("");
+			const { error } = await authClient.organization.inviteMember({
+				organizationId: orgId,
+				email: inviteEmail.trim(),
+				role: inviteRole,
+			});
+			if (error) {
+				toast.error(error.message ?? "Failed to send invitation");
+			} else {
+				toast.success("Invitation sent");
+				setInviteEmail("");
+			}
 		}
 		setInviting(false);
 	};
@@ -136,7 +152,7 @@ function OverviewTab({
 							<Label htmlFor="invite-role">Role</Label>
 							<Select
 								value={inviteRole}
-								onValueChange={(v: "member" | "admin") => setInviteRole(v)}
+								onValueChange={(v) => setInviteRole(v)}
 							>
 								<SelectTrigger id="invite-role" className="w-32">
 									<SelectValue />
@@ -144,6 +160,9 @@ function OverviewTab({
 								<SelectContent>
 									<SelectItem value="member">Member</SelectItem>
 									<SelectItem value="admin">Admin</SelectItem>
+									{isPlatformAdmin && (
+										<SelectItem value="owner">Owner</SelectItem>
+									)}
 								</SelectContent>
 							</Select>
 						</div>
@@ -175,9 +194,11 @@ interface MemberData {
 function MembersTab({
 	orgId,
 	memberRole,
+	isPlatformAdmin,
 }: {
 	orgId: string;
 	memberRole: string;
+	isPlatformAdmin: boolean;
 }) {
 	const { data: activeOrg } = authClient.useActiveOrganization();
 	const members = (activeOrg as any)?.members as MemberData[] | undefined;
@@ -254,7 +275,7 @@ function MembersTab({
 								{members?.length ?? 0} member{members?.length !== 1 ? "s" : ""}
 							</CardDescription>
 						</div>
-						{memberRole === "owner" && members && members.length > 1 && (
+						{(memberRole === "owner" || isPlatformAdmin) && members && members.length > 1 && (
 							<Button
 								variant="outline"
 								size="sm"
@@ -304,7 +325,7 @@ function MembersTab({
 												<Badge variant={roleBadgeVariant("owner")}>
 													owner
 												</Badge>
-											) : memberRole === "owner" ? (
+											) : memberRole === "owner" || isPlatformAdmin ? (
 												<Select
 													value={member.role}
 													onValueChange={(role) =>
@@ -327,7 +348,7 @@ function MembersTab({
 											)}
 										</TableCell>
 										<TableCell>
-											{!isOwner && memberRole === "owner" && (
+											{!isOwner && (memberRole === "owner" || isPlatformAdmin) && (
 												<Button
 													variant="ghost"
 													size="sm"
@@ -411,7 +432,13 @@ function MembersTab({
 
 // ─── Invitations tab ──────────────────────────────────────
 
-function InvitationsTab({ orgId }: { orgId: string }) {
+function InvitationsTab({
+	orgId,
+	isPlatformAdmin,
+}: {
+	orgId: string;
+	isPlatformAdmin: boolean;
+}) {
 	const { data: activeOrg } = authClient.useActiveOrganization();
 	const pendingInvitations = (activeOrg as any)?.invitations as
 		| Array<{
@@ -424,23 +451,36 @@ function InvitationsTab({ orgId }: { orgId: string }) {
 		| undefined;
 
 	const [inviteEmail, setInviteEmail] = useState("");
-	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
+	const [inviteRole, setInviteRole] = useState("member");
 	const [inviting, setInviting] = useState(false);
 
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!inviteEmail.trim()) return;
 		setInviting(true);
-		const { error } = await authClient.organization.inviteMember({
-			organizationId: orgId,
-			email: inviteEmail.trim(),
-			role: inviteRole,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to send invitation");
+
+		if (inviteRole === "owner") {
+			const { error } = await addOrgOwner({
+				data: { organizationId: orgId, email: inviteEmail.trim() },
+			});
+			if (error) {
+				toast.error(error.message ?? "Failed to add owner");
+			} else {
+				toast.success("Owner added");
+				setInviteEmail("");
+			}
 		} else {
-			toast.success("Invitation sent");
-			setInviteEmail("");
+			const { error } = await authClient.organization.inviteMember({
+				organizationId: orgId,
+				email: inviteEmail.trim(),
+				role: inviteRole,
+			});
+			if (error) {
+				toast.error(error.message ?? "Failed to send invitation");
+			} else {
+				toast.success("Invitation sent");
+				setInviteEmail("");
+			}
 		}
 		setInviting(false);
 	};
@@ -478,7 +518,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
 							<Label htmlFor="inv-role">Role</Label>
 							<Select
 								value={inviteRole}
-								onValueChange={(v: "member" | "admin") => setInviteRole(v)}
+								onValueChange={(v) => setInviteRole(v)}
 							>
 								<SelectTrigger id="inv-role" className="w-32">
 									<SelectValue />
@@ -486,6 +526,9 @@ function InvitationsTab({ orgId }: { orgId: string }) {
 								<SelectContent>
 									<SelectItem value="member">Member</SelectItem>
 									<SelectItem value="admin">Admin</SelectItem>
+									{isPlatformAdmin && (
+										<SelectItem value="owner">Owner</SelectItem>
+									)}
 								</SelectContent>
 							</Select>
 						</div>
@@ -562,10 +605,12 @@ function SettingsTab({
 	org,
 	orgId,
 	memberRole,
+	isPlatformAdmin,
 }: {
 	org: { name: string; slug: string };
 	orgId: string;
 	memberRole: string;
+	isPlatformAdmin: boolean;
 }) {
 	const isOwner = memberRole === "owner";
 	const [name, setName] = useState(org.name);
@@ -667,7 +712,7 @@ function SettingsTab({
 				</CardContent>
 			</Card>
 
-			{!isOwner && (
+			{!isOwner && !isPlatformAdmin && (
 				<Card className="border-destructive/50">
 					<CardHeader>
 						<CardTitle className="text-base text-destructive">
@@ -689,7 +734,7 @@ function SettingsTab({
 				</Card>
 			)}
 
-			{isOwner && (
+			{(isOwner || isPlatformAdmin) && (
 				<Card className="border-destructive/50">
 					<CardHeader>
 						<CardTitle className="text-base text-destructive">
@@ -809,6 +854,7 @@ function RouteComponent() {
 		(m) => m.userId === session?.user?.id,
 	);
 	const memberRole = currentMember?.role ?? "member";
+	const isPlatformAdmin = session?.user?.role === "admin";
 
 	if (!activeOrg) {
 		return (
@@ -833,22 +879,31 @@ function RouteComponent() {
 					<TabsTrigger value="settings">Settings</TabsTrigger>
 				</TabsList>
 				<TabsContent value="overview">
-					<OverviewTab org={activeOrg} orgId={activeOrg.id} />
+					<OverviewTab
+						org={activeOrg}
+						orgId={activeOrg.id}
+						isPlatformAdmin={isPlatformAdmin}
+					/>
 				</TabsContent>
 				<TabsContent value="members">
 					<MembersTab
 						orgId={activeOrg.id}
 						memberRole={memberRole}
+						isPlatformAdmin={isPlatformAdmin}
 					/>
 				</TabsContent>
 				<TabsContent value="invitations">
-					<InvitationsTab orgId={activeOrg.id} />
+					<InvitationsTab
+						orgId={activeOrg.id}
+						isPlatformAdmin={isPlatformAdmin}
+					/>
 				</TabsContent>
 				<TabsContent value="settings">
 					<SettingsTab
 						org={activeOrg}
 						orgId={activeOrg.id}
 						memberRole={memberRole}
+						isPlatformAdmin={isPlatformAdmin}
 					/>
 				</TabsContent>
 			</Tabs>

@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboard, Shield, Users, Mail, Settings } from "lucide-react";
+import { Building2, LayoutDashboard, Shield, Globe } from "lucide-react";
 
 import { NavMain } from "#/components/nav-main.tsx";
 import { NavUser } from "#/components/nav-user.tsx";
@@ -29,28 +29,18 @@ const adminNav = [
 		url: "/admin",
 		icon: Shield,
 	},
+	{
+		title: "Organizations",
+		url: "/admin/organizations",
+		icon: Globe,
+	},
 ];
 
 const orgNavItems = [
 	{
-		title: "Overview",
-		url: "/organization?tab=overview",
+		title: "Organization",
+		url: "/organization",
 		icon: Building2,
-	},
-	{
-		title: "Members",
-		url: "/organization?tab=members",
-		icon: Users,
-	},
-	{
-		title: "Invitations",
-		url: "/organization?tab=invitations",
-		icon: Mail,
-	},
-	{
-		title: "Settings",
-		url: "/organization?tab=settings",
-		icon: Settings,
 	},
 ];
 
