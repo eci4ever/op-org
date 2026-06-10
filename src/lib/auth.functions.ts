@@ -126,6 +126,22 @@ export const adminDeleteOrganization = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+export const getUserFirstOrganization = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const headers = getRequestHeaders();
+    const session = await auth.api.getSession({ headers });
+    if (!session) return null;
+
+    const memberRecord = await db.query.member.findFirst({
+      where: (m, { eq }) => eq(m.userId, session.user.id),
+      with: { organization: true },
+      orderBy: (m, { asc }) => [asc(m.createdAt)],
+    });
+
+    return memberRecord?.organization ?? null;
+  },
+);
+
 export const addOrgOwner = createServerFn({ method: "POST" })
   .validator((d: { organizationId: string; email: string }) => d)
   .handler(async ({ data }) => {

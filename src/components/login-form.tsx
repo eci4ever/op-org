@@ -17,6 +17,7 @@ import {
 } from "#/components/ui/field.tsx";
 import { Input } from "#/components/ui/input.tsx";
 import { authClient } from "#/lib/auth-client.ts";
+import { getUserFirstOrganization } from "#/lib/auth.functions.ts";
 import { cn } from "#/lib/utils.ts";
 
 export function LoginForm({
@@ -50,7 +51,6 @@ export function LoginForm({
 		const { data, error } = await authClient.signIn.email({
 			email,
 			password,
-			callbackURL: redirect ?? "/dashboard",
 		});
 
 		if (error) {
@@ -65,6 +65,7 @@ export function LoginForm({
 		}
 
 		if (data) {
+			await trySetActiveOrg();
 			navigate({ to: redirect ?? "/dashboard" });
 		} else {
 			setEmailNotVerified(true);
@@ -72,6 +73,13 @@ export function LoginForm({
 				"Please verify your email before logging in.",
 			);
 			setLoading(false);
+		}
+	};
+
+	const trySetActiveOrg = async () => {
+		const org = await getUserFirstOrganization();
+		if (org) {
+			await authClient.organization.setActive({ organizationId: org.id });
 		}
 	};
 
@@ -90,6 +98,7 @@ export function LoginForm({
 		}
 
 		if (data) {
+			await trySetActiveOrg();
 			navigate({ to: redirect ?? "/dashboard" });
 		}
 
