@@ -14,6 +14,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { TooltipProvider } from '#/components/ui/tooltip'
 
 import { Toaster } from "@/components/ui/sonner"
+import { NotFound } from '#/components/not-found'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -40,6 +41,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
     ],
   }),
+  notFoundComponent: NotFound,
   shellComponent: RootDocument,
 })
 
