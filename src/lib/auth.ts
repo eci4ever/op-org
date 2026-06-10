@@ -47,6 +47,9 @@ export const auth = betterAuth({
 	plugins: [
 		admin(),
 		organization({
+			allowUserToCreateOrganization: async (user) => {
+				return user.role === "admin";
+			},
 			invitationExpiresIn: 7 * 24 * 60 * 60,
 			cancelPendingInvitationsOnReInvite: true,
 			sendInvitationEmail: async ({ email, organization, inviter, id }) => {

@@ -14,6 +14,7 @@ import { CreateOrgDialog } from "#/components/create-org-dialog";
 
 export function TeamSwitcher() {
 	const { isMobile } = useSidebar();
+	const { data: session } = authClient.useSession();
 	const { data: activeOrg } = authClient.useActiveOrganization();
 	const { data: organizations } = authClient.useListOrganizations();
 	const [createOpen, setCreateOpen] = useState(false);
@@ -74,13 +75,15 @@ export function TeamSwitcher() {
 						</DropdownMenuItem>
 					)}
 					<DropdownMenuSeparator />
-					<DropdownMenuItem
-						onClick={() => setCreateOpen(true)}
-						className="gap-2 p-2"
-					>
-						<Plus className="size-3.5" />
-						Create organization
-					</DropdownMenuItem>
+					{session?.user?.role === "admin" && (
+						<DropdownMenuItem
+							onClick={() => setCreateOpen(true)}
+							className="gap-2 p-2"
+						>
+							<Plus className="size-3.5" />
+							Create organization
+						</DropdownMenuItem>
+					)}
 					{currentOrg && (
 						<DropdownMenuItem
 							onClick={() => (window.location.href = "/organization")}
