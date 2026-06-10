@@ -1,4 +1,4 @@
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Shield } from "lucide-react";
 
 import { NavMain } from "#/components/nav-main.tsx";
 import { NavUser } from "#/components/nav-user.tsx";
@@ -20,6 +20,14 @@ const navMain = [
 		url: "/dashboard",
 		icon: LayoutDashboard,
 		isActive: true,
+	},
+];
+
+const adminNav = [
+	{
+		title: "Users",
+		url: "/admin",
+		icon: Shield,
 	},
 ];
 
@@ -45,6 +53,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />
+				{session?.user?.role === "admin" && (
+					<NavMain items={adminNav} label="Administration" />
+				)}
 			</SidebarContent>
 			<SidebarFooter>
 				<NavUser user={user} />
