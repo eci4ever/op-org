@@ -18,6 +18,8 @@ import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
+import { Route as ProtectedOrganizationRouteImport } from './routes/_protected/organization'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedAdminRouteImport } from './routes/_protected/admin'
 import { Route as ProtectedAccountRouteImport } from './routes/_protected/account'
@@ -68,6 +70,17 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptInvitationInvitationIdRoute =
+  AcceptInvitationInvitationIdRouteImport.update({
+    id: '/accept-invitation/$invitationId',
+    path: '/accept-invitation/$invitationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ProtectedOrganizationRoute = ProtectedOrganizationRouteImport.update({
+  id: '/organization',
+  path: '/organization',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -106,6 +119,8 @@ export interface FileRoutesByFullPath {
   '/account': typeof ProtectedAccountRoute
   '/admin': typeof ProtectedAdminRouteWithChildren
   '/dashboard': typeof ProtectedDashboardRoute
+  '/organization': typeof ProtectedOrganizationRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/': typeof ProtectedAdminIndexRoute
 }
@@ -120,6 +135,8 @@ export interface FileRoutesByTo {
   '/two-factor': typeof TwoFactorRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/organization': typeof ProtectedOrganizationRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof ProtectedAdminIndexRoute
 }
@@ -137,6 +154,8 @@ export interface FileRoutesById {
   '/_protected/account': typeof ProtectedAccountRoute
   '/_protected/admin': typeof ProtectedAdminRouteWithChildren
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/organization': typeof ProtectedOrganizationRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
 }
@@ -154,6 +173,8 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/dashboard'
+    | '/organization'
+    | '/accept-invitation/$invitationId'
     | '/api/auth/$'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -168,6 +189,8 @@ export interface FileRouteTypes {
     | '/two-factor'
     | '/account'
     | '/dashboard'
+    | '/organization'
+    | '/accept-invitation/$invitationId'
     | '/api/auth/$'
     | '/admin'
   id:
@@ -184,6 +207,8 @@ export interface FileRouteTypes {
     | '/_protected/account'
     | '/_protected/admin'
     | '/_protected/dashboard'
+    | '/_protected/organization'
+    | '/accept-invitation/$invitationId'
     | '/api/auth/$'
     | '/_protected/admin/'
   fileRoutesById: FileRoutesById
@@ -198,6 +223,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   TwoFactorRoute: typeof TwoFactorRoute
+  AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -266,6 +292,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accept-invitation/$invitationId': {
+      id: '/accept-invitation/$invitationId'
+      path: '/accept-invitation/$invitationId'
+      fullPath: '/accept-invitation/$invitationId'
+      preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected/organization': {
+      id: '/_protected/organization'
+      path: '/organization'
+      fullPath: '/organization'
+      preLoaderRoute: typeof ProtectedOrganizationRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/dashboard': {
       id: '/_protected/dashboard'
       path: '/dashboard'
@@ -320,12 +360,14 @@ interface ProtectedRouteChildren {
   ProtectedAccountRoute: typeof ProtectedAccountRoute
   ProtectedAdminRoute: typeof ProtectedAdminRouteWithChildren
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedOrganizationRoute: typeof ProtectedOrganizationRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedAccountRoute: ProtectedAccountRoute,
   ProtectedAdminRoute: ProtectedAdminRouteWithChildren,
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedOrganizationRoute: ProtectedOrganizationRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
@@ -342,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   TwoFactorRoute: TwoFactorRoute,
+  AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

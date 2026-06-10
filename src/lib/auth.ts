@@ -42,11 +42,24 @@ export const auth = betterAuth({
 			await sendEmail({ to: user.email, template });
 		},
 		sendOnSignUp: true,
-		autoSignInAfterVerification: false,
+		autoSignInAfterVerification: true,
 	},
 	plugins: [
 		admin(),
-		organization(),
+		organization({
+			invitationExpiresIn: 7 * 24 * 60 * 60,
+			cancelPendingInvitationsOnReInvite: true,
+			sendInvitationEmail: async ({ email, organization, inviter, id }) => {
+				const inviteLink = `${process.env.BETTER_AUTH_URL ?? "http://localhost:3000"}/accept-invitation/${id}`;
+				const template = makeEmailTemplate("organization-invitation", {
+					recipientName: inviter.user.name,
+					organizationName: organization.name,
+					actionUrl: inviteLink,
+				});
+
+				await sendEmail({ to: email, template });
+			},
+		}),
 		twoFactor(),
 		passkey({
 			rpID: new URL(

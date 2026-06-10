@@ -18,7 +18,10 @@ import {
 import { Input } from "#/components/ui/input.tsx";
 import { authClient } from "#/lib/auth-client.ts";
 
-export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
+export function SignupForm({
+	redirect,
+	...props
+}: React.ComponentProps<typeof Card> & { redirect?: string }) {
 	const navigate = useNavigate();
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
@@ -48,14 +51,13 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 				email,
 				password,
 				name,
-				callbackURL: "/email-verified",
+				callbackURL: redirect ?? "/email-verified",
 			},
 			{
 				onSuccess: async () => {
 					toast.success(
 						"Account created! Check your email to verify.",
 					);
-					await authClient.signOut();
 					navigate({ to: "/check-email" });
 				},
 				onError: (ctx) => {
@@ -145,10 +147,13 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 								<FieldDescription className="px-6 text-center">
 									Already have an account?{" "}
 									<a
-										href="/login"
+										href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"}
 										onClick={(e) => {
 											e.preventDefault();
-											navigate({ to: "/login" });
+											navigate({
+												to: "/login",
+												search: redirect ? { redirect } : undefined,
+											});
 										}}
 									>
 										Sign in

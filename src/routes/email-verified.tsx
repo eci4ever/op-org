@@ -1,13 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Button } from "#/components/ui/button";
 import { authClient } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/email-verified")({
+	validateSearch: z.object({
+		redirect: z.string().optional(),
+	}),
 	component: RouteComponent,
 });
 
 function RouteComponent() {
 	const { data: session } = authClient.useSession();
+	const { redirect } = Route.useSearch();
+
+	if (session && redirect) {
+		return (
+			<div className="flex min-h-svh items-center justify-center p-8">
+				<div className="max-w-md space-y-6 text-center">
+					<div className="flex justify-center">
+						<div className="flex size-16 items-center justify-center rounded-full bg-green-100">
+							<span className="text-3xl">✓</span>
+						</div>
+					</div>
+					<h1 className="text-3xl font-bold tracking-tight">Email Verified!</h1>
+					<p className="text-muted-foreground">
+						Redirecting you...
+					</p>
+					<div className="flex items-center justify-center gap-4">
+						<Button asChild>
+							<a href={redirect}>Continue</a>
+						</Button>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex min-h-svh items-center justify-center p-8">
@@ -29,7 +57,7 @@ function RouteComponent() {
 						</Button>
 					) : (
 						<>
-							<Button>
+							<Button asChild>
 								<a href="/login">Sign in</a>
 							</Button>
 							<Button variant="outline" asChild>

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Shield } from "lucide-react";
+import { Building2, LayoutDashboard, Shield, Users, Mail, Settings } from "lucide-react";
 
 import { NavMain } from "#/components/nav-main.tsx";
 import { NavUser } from "#/components/nav-user.tsx";
@@ -31,8 +31,32 @@ const adminNav = [
 	},
 ];
 
+const orgNavItems = [
+	{
+		title: "Overview",
+		url: "/organization?tab=overview",
+		icon: Building2,
+	},
+	{
+		title: "Members",
+		url: "/organization?tab=members",
+		icon: Users,
+	},
+	{
+		title: "Invitations",
+		url: "/organization?tab=invitations",
+		icon: Mail,
+	},
+	{
+		title: "Settings",
+		url: "/organization?tab=settings",
+		icon: Settings,
+	},
+];
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 	const { data: session } = authClient.useSession();
+	const { data: activeOrg } = authClient.useActiveOrganization();
 
 	const user = session?.user
 		? {
@@ -53,6 +77,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />
+				{activeOrg && (
+					<NavMain items={orgNavItems} label={activeOrg.name} />
+				)}
 				{session?.user?.role === "admin" && (
 					<NavMain items={adminNav} label="Administration" />
 				)}
