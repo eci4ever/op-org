@@ -67,6 +67,9 @@ type User = {
 };
 
 function RouteComponent() {
+	const { data: currentSession } = authClient.useSession();
+	const currentUserId = currentSession?.user?.id;
+
 	const [users, setUsers] = useState<User[]>([]);
 	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(true);
@@ -91,6 +94,21 @@ function RouteComponent() {
 	const [createEmail, setCreateEmail] = useState("");
 	const [createPassword, setCreatePassword] = useState("");
 	const [createRole, setCreateRole] = useState<"user" | "admin">("user");
+
+	const [sessionsUser, setSessionsUser] = useState<User | null>(null);
+	const [sessions, setSessions] = useState<{
+		id: string;
+		token: string;
+		userId: string;
+		expiresAt: Date;
+		createdAt: Date;
+		ipAddress?: string | null;
+		userAgent?: string | null;
+		impersonatedBy?: string | null;
+	}[]>([]);
+	const [sessionsLoading, setSessionsLoading] = useState(false);
+	const [revokingSessionToken, setRevokingSessionToken] = useState<string | null>(null);
+	const [revokingAll, setRevokingAll] = useState(false);
 
 	const fetchUsers = async () => {
 		setLoading(true);
@@ -119,6 +137,10 @@ function RouteComponent() {
 	}, []);
 
 	const handleSetRole = async (userId: string, role: "user" | "admin") => {
+		if (userId === currentUserId) {
+			toast.error("You cannot change your own role");
+			return;
+		}
 		const { error } = await authClient.admin.setRole({ userId, role });
 		if (error) {
 			toast.error(error.message ?? "Failed to update role");
@@ -131,6 +153,10 @@ function RouteComponent() {
 	};
 
 	const handleBan = async (userId: string) => {
+		if (userId === currentUserId) {
+			toast.error("You cannot ban yourself");
+			return;
+		}
 		setBanningId(userId);
 		const { error } = await authClient.admin.banUser({
 			userId,
@@ -168,6 +194,10 @@ function RouteComponent() {
 	};
 
 	const handleDelete = async (userId: string) => {
+		if (userId === currentUserId) {
+			toast.error("You cannot delete yourself");
+			return;
+		}
 		setDeletingId(userId);
 		const { error } = await authClient.admin.removeUser({ userId });
 		if (error) {
@@ -181,6 +211,10 @@ function RouteComponent() {
 	};
 
 	const handleImpersonate = async (userId: string) => {
+		if (userId === currentUserId) {
+			toast.error("You cannot impersonate yourself");
+			return;
+		}
 		const { data, error } = await authClient.admin.impersonateUser({ userId });
 		if (error) {
 			toast.error(error.message ?? "Failed to impersonate user");
@@ -214,6 +248,56 @@ function RouteComponent() {
 			fetchUsers();
 		}
 		setCreating(false);
+	};
+
+	const handleListSessions = async (user: User) => {
+		setSessionsUser(user);
+		setSessionsLoading(true);
+		const { data, error } = await authClient.admin.listUserSessions({
+			userId: user.id,
+		});
+		if (error) {
+			toast.error(error.message ?? "Failed to fetch sessions");
+			setSessionsUser(null);
+		} else {
+			setSessions(data?.sessions ?? []);
+		}
+		setSessionsLoading(false);
+	};
+
+	const handleRevokeSession = async (token: string) => {
+		const session = sessions.find((s) => s.token === token);
+		if (session?.userId === currentUserId) {
+			toast.error("You cannot revoke your own session");
+			return;
+		}
+		setRevokingSessionToken(token);
+		const { error } = await authClient.admin.revokeUserSession({
+			sessionToken: token,
+		});
+		if (error) {
+			toast.error(error.message ?? "Failed to revoke session");
+		} else {
+			toast.success("Session revoked");
+			setSessions((prev) => prev.filter((s) => s.token !== token));
+		}
+		setRevokingSessionToken(null);
+	};
+
+	const handleRevokeAllSessions = async (userId: string) => {
+		if (userId === currentUserId) {
+			toast.error("You cannot revoke your own sessions");
+			return;
+		}
+		setRevokingAll(true);
+		const { error } = await authClient.admin.revokeUserSessions({ userId });
+		if (error) {
+			toast.error(error.message ?? "Failed to revoke sessions");
+		} else {
+			toast.success("All sessions revoked");
+			setSessions([]);
+		}
+		setRevokingAll(false);
 	};
 
 	const columns: ColumnDef<User>[] = [
@@ -279,9 +363,11 @@ function RouteComponent() {
 			),
 			cell: ({ row }) => {
 				const user = row.original;
+				const isSelf = user.id === currentUserId;
 				return (
 					<Select
 						value={user.role ?? "user"}
+						disabled={isSelf}
 						onValueChange={(role) =>
 							handleSetRole(user.id, role as "user" | "admin")
 						}
@@ -314,6 +400,7 @@ function RouteComponent() {
 			header: "Actions",
 			cell: ({ row }) => {
 				const user = row.original;
+				const isSelf = user.id === currentUserId;
 				return (
 					<>
 						<div className="flex flex-wrap gap-1.5">
@@ -321,6 +408,7 @@ function RouteComponent() {
 								<Button
 									variant="outline"
 									size="xs"
+									disabled={isSelf}
 									onClick={() => handleUnban(user.id)}
 								>
 									Unban
@@ -329,11 +417,19 @@ function RouteComponent() {
 								<Button
 									variant="outline"
 									size="xs"
+									disabled={isSelf}
 									onClick={() => setShowBanDialog(user.id)}
 								>
 									Ban
 								</Button>
 							)}
+							<Button
+								variant="outline"
+								size="xs"
+								onClick={() => handleListSessions(user)}
+							>
+								Sessions
+							</Button>
 							<Button
 								variant="outline"
 								size="xs"
@@ -344,6 +440,7 @@ function RouteComponent() {
 							<Button
 								variant="destructive"
 								size="xs"
+								disabled={isSelf}
 								onClick={() => setShowDeleteDialog(user.id)}
 							>
 								Delete
@@ -707,6 +804,103 @@ function RouteComponent() {
 						)}
 					</CardContent>
 				</Card>
+
+				<Dialog
+					open={!!sessionsUser}
+					onOpenChange={(open) => {
+						if (!open) setSessionsUser(null);
+					}}
+				>
+					<DialogContent className="max-w-lg">
+						<DialogHeader>
+							<DialogTitle>
+								Sessions — {sessionsUser?.name ?? "User"}
+							</DialogTitle>
+							<DialogDescription>
+								{sessionsLoading
+									? "Loading sessions..."
+									: sessions.length === 1
+										? "1 active session"
+										: `${sessions.length} active sessions`}
+							</DialogDescription>
+						</DialogHeader>
+						{sessionsLoading ? (
+							<p className="py-8 text-center text-sm text-muted-foreground">
+								Loading sessions...
+							</p>
+						) : sessions.length === 0 ? (
+							<p className="py-8 text-center text-sm text-muted-foreground">
+								No active sessions.
+							</p>
+						) : (
+							<div className="space-y-3">
+								{sessions.map((s) => (
+									<div
+										key={s.id}
+										className="flex items-center justify-between rounded-lg border p-3"
+									>
+										<div className="space-y-1">
+											<p className="text-sm font-medium">
+												{s.userAgent ?? "Unknown device"}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												Created{" "}
+												{new Date(s.createdAt).toLocaleDateString()}
+												{s.ipAddress
+													? ` · ${s.ipAddress}`
+													: ""}
+											</p>
+											{s.impersonatedBy && (
+												<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+													Impersonated
+												</span>
+											)}
+										</div>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={
+												revokingSessionToken === s.token ||
+												s.userId === currentUserId
+											}
+											onClick={() =>
+												handleRevokeSession(s.token)
+											}
+										>
+											{revokingSessionToken === s.token
+												? "Revoking..."
+												: s.userId === currentUserId
+													? "Current"
+													: "Revoke"}
+										</Button>
+									</div>
+								))}
+							</div>
+						)}
+						<DialogFooter>
+							{sessions.length > 1 && sessionsUser?.id !== currentUserId && (
+								<Button
+									variant="destructive"
+									disabled={revokingAll || sessionsLoading}
+									onClick={() =>
+										sessionsUser &&
+										handleRevokeAllSessions(sessionsUser.id)
+									}
+								>
+									{revokingAll
+										? "Revoking all..."
+										: "Revoke all sessions"}
+								</Button>
+							)}
+							<Button
+								variant="outline"
+								onClick={() => setSessionsUser(null)}
+							>
+								Close
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</div>
 		</ProtectedLayout>
 	);
