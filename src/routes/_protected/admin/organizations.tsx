@@ -1,13 +1,7 @@
-import { useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Building2, Plus, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
-import {
-	adminCreateOrganization,
-	adminDeleteOrganization,
-	listAllOrganizations,
-	type OrgWithMeta,
-} from "#/lib/auth.functions";
 import { ProtectedLayout } from "#/components/protected-layout";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -36,6 +30,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
+import {
+	adminCreateOrganization,
+	adminDeleteOrganization,
+	listAllOrganizations,
+	type OrgWithMeta,
+} from "#/features/organizations/organization.functions";
 
 export const Route = createFileRoute("/_protected/admin/organizations")({
 	component: RouteComponent,
@@ -85,23 +85,27 @@ function RouteComponent() {
 		e.preventDefault();
 		if (!createName.trim() || !createSlug.trim() || !ownerEmail.trim()) return;
 		setCreating(true);
-		const { error } = await adminCreateOrganization({
-			data: {
-				name: createName.trim(),
-				slug: createSlug.trim(),
-				ownerEmail: ownerEmail.trim(),
-			},
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to create organization");
-		} else {
+		try {
+			await adminCreateOrganization({
+				data: {
+					name: createName.trim(),
+					slug: createSlug.trim(),
+					ownerEmail: ownerEmail.trim(),
+				},
+			});
 			toast.success("Organization created");
 			setCreateOpen(false);
 			setCreateName("");
 			setCreateSlug("");
 			setSlugEdited(false);
 			setOwnerEmail("");
-			router.invalidate();
+			await router.invalidate();
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to create organization",
+			);
 		}
 		setCreating(false);
 	};
@@ -109,16 +113,20 @@ function RouteComponent() {
 	const handleDelete = async () => {
 		if (!deleteTarget) return;
 		setDeleting(true);
-		const { error } = await adminDeleteOrganization({
-			data: { organizationId: deleteTarget.id },
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to delete organization");
-		} else {
+		try {
+			await adminDeleteOrganization({
+				data: { organizationId: deleteTarget.id },
+			});
 			toast.success("Organization deleted");
 			setDeleteTarget(null);
 			setDeleteConfirm("");
-			router.invalidate();
+			await router.invalidate();
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to delete organization",
+			);
 		}
 		setDeleting(false);
 	};
@@ -171,7 +179,10 @@ function RouteComponent() {
 						<TableBody>
 							{filtered.length === 0 ? (
 								<TableRow>
-									<TableCell colSpan={6} className="text-center text-muted-foreground">
+									<TableCell
+										colSpan={6}
+										className="text-center text-muted-foreground"
+									>
 										{search
 											? "No organizations match your search."
 											: "No organizations found."}

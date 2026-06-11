@@ -1,15 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import {
+	createFileRoute,
+	useNavigate,
+	useRouter,
+} from "@tanstack/react-router";
 import {
 	type ColumnDef,
-	type SortingState,
 	flexRender,
 	getCoreRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
+	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+	ArrowUpDown,
+	ChevronLeft,
+	ChevronRight,
+	Search,
+	UserPlus,
+} from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
 import { Badge } from "#/components/ui/badge";
@@ -47,36 +58,46 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
-import { authClient } from "#/lib/auth-client";
+import {
+	type AdminUser,
+	type AdminUserSession,
+	adminUsersSearchSchema,
+	banAdminUser,
+	createAdminUser,
+	deleteAdminUser,
+	impersonateAdminUser,
+	listAdminUserSessions,
+	listAdminUsers,
+	revokeAdminUserSession,
+	revokeAllAdminUserSessions,
+	setAdminUserRole,
+	unbanAdminUser,
+} from "#/features/admin-users/admin-users.functions";
 
 export const Route = createFileRoute("/_protected/admin/")({
+	validateSearch: adminUsersSearchSchema,
+	loaderDeps: ({ search }) => search,
+	loader: async ({ deps }) => listAdminUsers({ data: deps }),
 	component: RouteComponent,
 });
 
-type User = {
-	id: string;
-	name: string;
-	email: string;
-	role: string | null;
-	banned: boolean | null;
-	banReason: string | null;
-	banExpires: Date | null;
-	createdAt: Date;
-	emailVerified: boolean | null;
-	image: string | null;
-};
+function getErrorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
+}
 
 function RouteComponent() {
-	const { data: currentSession } = authClient.useSession();
-	const currentUserId = currentSession?.user?.id;
+	const router = useRouter();
+	const navigate = useNavigate();
+	const searchParams = Route.useSearch();
+	const { users, total, currentUserId } = Route.useLoaderData();
 
-	const [users, setUsers] = useState<User[]>([]);
-	const [total, setTotal] = useState(0);
-	const [loading, setLoading] = useState(true);
-	const [search, setSearch] = useState("");
-	const [searchField, setSearchField] = useState<"name" | "email">("name");
-	const [roleFilter, setRoleFilter] = useState<string>("all");
-
+	const [search, setSearch] = useState(searchParams.q);
+	const [searchField, setSearchField] = useState<"name" | "email">(
+		searchParams.field,
+	);
+	const [roleFilter, setRoleFilter] = useState<"all" | "user" | "admin">(
+		searchParams.role,
+	);
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [pageSize, setPageSize] = useState(10);
 
@@ -95,61 +116,154 @@ function RouteComponent() {
 	const [createPassword, setCreatePassword] = useState("");
 	const [createRole, setCreateRole] = useState<"user" | "admin">("user");
 
-	const [sessionsUser, setSessionsUser] = useState<User | null>(null);
-	const [sessions, setSessions] = useState<{
-		id: string;
-		token: string;
-		userId: string;
-		expiresAt: Date;
-		createdAt: Date;
-		ipAddress?: string | null;
-		userAgent?: string | null;
-		impersonatedBy?: string | null;
-	}[]>([]);
-	const [sessionsLoading, setSessionsLoading] = useState(false);
-	const [revokingSessionToken, setRevokingSessionToken] = useState<string | null>(null);
+	const [sessionsUser, setSessionsUser] = useState<AdminUser | null>(null);
+	const [sessions, setSessions] = useState<AdminUserSession[]>([]);
+	const [revokingSessionToken, setRevokingSessionToken] = useState<
+		string | null
+	>(null);
 	const [revokingAll, setRevokingAll] = useState(false);
 
-	const fetchUsers = async () => {
-		setLoading(true);
-		const { data, error } = await authClient.admin.listUsers({
-			query: {
-				searchValue: search || undefined,
-				searchField: search ? searchField : undefined,
-				searchOperator: "contains",
-				filterField: roleFilter !== "all" ? "role" : undefined,
-				filterValue: roleFilter !== "all" ? roleFilter : undefined,
-				filterOperator: roleFilter !== "all" ? "eq" : undefined,
-				limit: 100,
-			},
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to fetch users");
-		} else if (data) {
-			setUsers((data.users ?? []) as User[]);
-			setTotal(data.total ?? 0);
-		}
-		setLoading(false);
+	const invalidateAdminUsers = async () => {
+		await router.invalidate();
 	};
 
-	useEffect(() => {
-		fetchUsers();
-	}, []);
+	const setRoleMutation = useMutation({
+		mutationFn: (data: { userId: string; role: "user" | "admin" }) =>
+			setAdminUserRole({ data }),
+		onSuccess: async () => {
+			toast.success("Role updated");
+			await invalidateAdminUsers();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to update role"));
+		},
+	});
 
-	const handleSetRole = async (userId: string, role: "user" | "admin") => {
+	const banMutation = useMutation({
+		mutationFn: (data: {
+			userId: string;
+			banReason?: string;
+			banExpiresIn?: number;
+		}) => banAdminUser({ data }),
+		onSuccess: async () => {
+			toast.success("User banned");
+			setShowBanDialog(null);
+			setBanReason("");
+			setBanExpiresIn("");
+			await invalidateAdminUsers();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to ban user"));
+		},
+	});
+
+	const unbanMutation = useMutation({
+		mutationFn: (data: { userId: string }) => unbanAdminUser({ data }),
+		onSuccess: async () => {
+			toast.success("User unbanned");
+			await invalidateAdminUsers();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to unban user"));
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (data: { userId: string }) => deleteAdminUser({ data }),
+		onSuccess: async () => {
+			toast.success("User deleted");
+			setShowDeleteDialog(null);
+			await invalidateAdminUsers();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to delete user"));
+		},
+	});
+
+	const impersonateMutation = useMutation({
+		mutationFn: (data: { userId: string }) => impersonateAdminUser({ data }),
+		onSuccess: () => {
+			toast.success("Impersonating user");
+			window.location.href = "/dashboard";
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to impersonate user"));
+		},
+	});
+
+	const createUserMutation = useMutation({
+		mutationFn: (data: {
+			name: string;
+			email: string;
+			password: string;
+			role: "user" | "admin";
+		}) => createAdminUser({ data }),
+		onSuccess: async () => {
+			toast.success("User created");
+			setShowCreateDialog(false);
+			setCreateName("");
+			setCreateEmail("");
+			setCreatePassword("");
+			setCreateRole("user");
+			await invalidateAdminUsers();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to create user"));
+		},
+	});
+
+	const listSessionsMutation = useMutation({
+		mutationFn: (data: { userId: string }) => listAdminUserSessions({ data }),
+		onSuccess: (data) => {
+			setSessions(data);
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to fetch sessions"));
+			setSessionsUser(null);
+		},
+	});
+
+	const revokeSessionMutation = useMutation({
+		mutationFn: (data: { sessionToken: string; sessionUserId: string }) =>
+			revokeAdminUserSession({ data }),
+		onSuccess: (_, data) => {
+			toast.success("Session revoked");
+			setSessions((prev) => prev.filter((s) => s.token !== data.sessionToken));
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to revoke session"));
+		},
+	});
+
+	const revokeAllSessionsMutation = useMutation({
+		mutationFn: (data: { userId: string }) =>
+			revokeAllAdminUserSessions({ data }),
+		onSuccess: () => {
+			toast.success("All sessions revoked");
+			setSessions([]);
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to revoke sessions"));
+		},
+	});
+
+	const fetchUsers = async () => {
+		await navigate({
+			to: "/admin",
+			search: {
+				q: search,
+				field: searchField,
+				role: roleFilter,
+			},
+		});
+	};
+
+	const handleSetRole = (userId: string, role: "user" | "admin") => {
 		if (userId === currentUserId) {
 			toast.error("You cannot change your own role");
 			return;
 		}
-		const { error } = await authClient.admin.setRole({ userId, role });
-		if (error) {
-			toast.error(error.message ?? "Failed to update role");
-		} else {
-			toast.success("Role updated");
-			setUsers((prev) =>
-				prev.map((u) => (u.id === userId ? { ...u, role } : u)),
-			);
-		}
+		setRoleMutation.mutate({ userId, role });
 	};
 
 	const handleBan = async (userId: string) => {
@@ -158,39 +272,18 @@ function RouteComponent() {
 			return;
 		}
 		setBanningId(userId);
-		const { error } = await authClient.admin.banUser({
-			userId,
-			banReason: banReason || undefined,
-			banExpiresIn: banExpiresIn ? Number(banExpiresIn) : undefined,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to ban user");
-		} else {
-			toast.success("User banned");
-			setUsers((prev) =>
-				prev.map((u) =>
-					u.id === userId
-						? { ...u, banned: true, banReason: banReason || null }
-						: u,
-				),
-			);
-			setShowBanDialog(null);
-			setBanReason("");
-			setBanExpiresIn("");
-		}
+		await banMutation
+			.mutateAsync({
+				userId,
+				banReason: banReason || undefined,
+				banExpiresIn: banExpiresIn ? Number(banExpiresIn) : undefined,
+			})
+			.catch(() => undefined);
 		setBanningId(null);
 	};
 
-	const handleUnban = async (userId: string) => {
-		const { error } = await authClient.admin.unbanUser({ userId });
-		if (error) {
-			toast.error(error.message ?? "Failed to unban user");
-		} else {
-			toast.success("User unbanned");
-			setUsers((prev) =>
-				prev.map((u) => (u.id === userId ? { ...u, banned: false, banReason: null } : u)),
-			);
-		}
+	const handleUnban = (userId: string) => {
+		unbanMutation.mutate({ userId });
 	};
 
 	const handleDelete = async (userId: string) => {
@@ -199,29 +292,16 @@ function RouteComponent() {
 			return;
 		}
 		setDeletingId(userId);
-		const { error } = await authClient.admin.removeUser({ userId });
-		if (error) {
-			toast.error(error.message ?? "Failed to delete user");
-		} else {
-			toast.success("User deleted");
-			setUsers((prev) => prev.filter((u) => u.id !== userId));
-			setShowDeleteDialog(null);
-		}
+		await deleteMutation.mutateAsync({ userId }).catch(() => undefined);
 		setDeletingId(null);
 	};
 
-	const handleImpersonate = async (userId: string) => {
+	const handleImpersonate = (userId: string) => {
 		if (userId === currentUserId) {
 			toast.error("You cannot impersonate yourself");
 			return;
 		}
-		const { data, error } = await authClient.admin.impersonateUser({ userId });
-		if (error) {
-			toast.error(error.message ?? "Failed to impersonate user");
-		} else if (data) {
-			toast.success(`Impersonating user`);
-			window.location.href = "/dashboard";
-		}
+		impersonateMutation.mutate({ userId });
 	};
 
 	const handleCreateUser = async () => {
@@ -230,57 +310,35 @@ function RouteComponent() {
 			return;
 		}
 		setCreating(true);
-		const { error } = await authClient.admin.createUser({
-			name: createName,
-			email: createEmail,
-			password: createPassword,
-			role: createRole as "user" | "admin",
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to create user");
-		} else {
-			toast.success("User created");
-			setShowCreateDialog(false);
-			setCreateName("");
-			setCreateEmail("");
-			setCreatePassword("");
-			setCreateRole("user");
-			fetchUsers();
-		}
+		await createUserMutation
+			.mutateAsync({
+				name: createName,
+				email: createEmail,
+				password: createPassword,
+				role: createRole,
+			})
+			.catch(() => undefined);
 		setCreating(false);
 	};
 
-	const handleListSessions = async (user: User) => {
+	const handleListSessions = (user: AdminUser) => {
 		setSessionsUser(user);
-		setSessionsLoading(true);
-		const { data, error } = await authClient.admin.listUserSessions({
-			userId: user.id,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to fetch sessions");
-			setSessionsUser(null);
-		} else {
-			setSessions(data?.sessions ?? []);
-		}
-		setSessionsLoading(false);
+		setSessions([]);
+		listSessionsMutation.mutate({ userId: user.id });
 	};
 
-	const handleRevokeSession = async (token: string) => {
-		const session = sessions.find((s) => s.token === token);
-		if (session?.userId === currentUserId) {
+	const handleRevokeSession = async (session: AdminUserSession) => {
+		if (session.userId === currentUserId) {
 			toast.error("You cannot revoke your own session");
 			return;
 		}
-		setRevokingSessionToken(token);
-		const { error } = await authClient.admin.revokeUserSession({
-			sessionToken: token,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to revoke session");
-		} else {
-			toast.success("Session revoked");
-			setSessions((prev) => prev.filter((s) => s.token !== token));
-		}
+		setRevokingSessionToken(session.token);
+		await revokeSessionMutation
+			.mutateAsync({
+				sessionToken: session.token,
+				sessionUserId: session.userId,
+			})
+			.catch(() => undefined);
 		setRevokingSessionToken(null);
 	};
 
@@ -290,17 +348,13 @@ function RouteComponent() {
 			return;
 		}
 		setRevokingAll(true);
-		const { error } = await authClient.admin.revokeUserSessions({ userId });
-		if (error) {
-			toast.error(error.message ?? "Failed to revoke sessions");
-		} else {
-			toast.success("All sessions revoked");
-			setSessions([]);
-		}
+		await revokeAllSessionsMutation
+			.mutateAsync({ userId })
+			.catch(() => undefined);
 		setRevokingAll(false);
 	};
 
-	const columns: ColumnDef<User>[] = [
+	const columns: ColumnDef<AdminUser>[] = [
 		{
 			accessorKey: "name",
 			header: ({ column }) => (
@@ -367,7 +421,7 @@ function RouteComponent() {
 				return (
 					<Select
 						value={user.role ?? "user"}
-						disabled={isSelf}
+						disabled={isSelf || setRoleMutation.isPending}
 						onValueChange={(role) =>
 							handleSetRole(user.id, role as "user" | "admin")
 						}
@@ -386,14 +440,12 @@ function RouteComponent() {
 		{
 			accessorKey: "banned",
 			header: "Status",
-			cell: ({ row }) => {
-				const banned = row.original.banned;
-				return banned ? (
+			cell: ({ row }) =>
+				row.original.banned ? (
 					<Badge variant="destructive">Banned</Badge>
 				) : (
 					<Badge variant="default">Active</Badge>
-				);
-			},
+				),
 		},
 		{
 			id: "actions",
@@ -402,51 +454,50 @@ function RouteComponent() {
 				const user = row.original;
 				const isSelf = user.id === currentUserId;
 				return (
-					<>
-						<div className="flex flex-wrap gap-1.5">
-							{user.banned ? (
-								<Button
-									variant="outline"
-									size="xs"
-									disabled={isSelf}
-									onClick={() => handleUnban(user.id)}
-								>
-									Unban
-								</Button>
-							) : (
-								<Button
-									variant="outline"
-									size="xs"
-									disabled={isSelf}
-									onClick={() => setShowBanDialog(user.id)}
-								>
-									Ban
-								</Button>
-							)}
+					<div className="flex flex-wrap gap-1.5">
+						{user.banned ? (
 							<Button
 								variant="outline"
 								size="xs"
-								onClick={() => handleListSessions(user)}
+								disabled={isSelf || unbanMutation.isPending}
+								onClick={() => handleUnban(user.id)}
 							>
-								Sessions
+								Unban
 							</Button>
+						) : (
 							<Button
 								variant="outline"
-								size="xs"
-								onClick={() => handleImpersonate(user.id)}
-							>
-								Impersonate
-							</Button>
-							<Button
-								variant="destructive"
 								size="xs"
 								disabled={isSelf}
-								onClick={() => setShowDeleteDialog(user.id)}
+								onClick={() => setShowBanDialog(user.id)}
 							>
-								Delete
+								Ban
 							</Button>
-						</div>
-					</>
+						)}
+						<Button
+							variant="outline"
+							size="xs"
+							onClick={() => handleListSessions(user)}
+						>
+							Sessions
+						</Button>
+						<Button
+							variant="outline"
+							size="xs"
+							disabled={isSelf || impersonateMutation.isPending}
+							onClick={() => handleImpersonate(user.id)}
+						>
+							Impersonate
+						</Button>
+						<Button
+							variant="destructive"
+							size="xs"
+							disabled={isSelf}
+							onClick={() => setShowDeleteDialog(user.id)}
+						>
+							Delete
+						</Button>
+					</div>
 				);
 			},
 		},
@@ -471,6 +522,7 @@ function RouteComponent() {
 
 	const pageIndex = table.getState().pagination.pageIndex;
 	const pageCount = table.getPageCount();
+	const sessionsLoading = listSessionsMutation.isPending;
 
 	return (
 		<ProtectedLayout
@@ -509,7 +561,7 @@ function RouteComponent() {
 									<Input
 										id="create-name"
 										value={createName}
-										onChange={(e) => setCreateName(e.target.value)}
+										onChange={(event) => setCreateName(event.target.value)}
 									/>
 								</Field>
 								<Field>
@@ -518,7 +570,7 @@ function RouteComponent() {
 										id="create-email"
 										type="email"
 										value={createEmail}
-										onChange={(e) => setCreateEmail(e.target.value)}
+										onChange={(event) => setCreateEmail(event.target.value)}
 									/>
 								</Field>
 								<Field>
@@ -527,17 +579,18 @@ function RouteComponent() {
 										id="create-password"
 										type="password"
 										value={createPassword}
-										onChange={(e) => setCreatePassword(e.target.value)}
+										onChange={(event) => setCreatePassword(event.target.value)}
 									/>
 								</Field>
 								<Field>
 									<FieldLabel htmlFor="create-role">Role</FieldLabel>
 									<Select
 										value={createRole}
-										onValueChange={(v) =>
-											setCreateRole(v as "user" | "admin")
+										onValueChange={(value) =>
+											setCreateRole(value as "user" | "admin")
 										}
-									>	<SelectTrigger id="create-role">
+									>
+										<SelectTrigger id="create-role">
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
@@ -577,13 +630,15 @@ function RouteComponent() {
 								<Input
 									placeholder={`Search by ${searchField}...`}
 									value={search}
-									onChange={(e) => setSearch(e.target.value)}
+									onChange={(event) => setSearch(event.target.value)}
 									className="pl-9"
 								/>
 							</div>
 							<Select
 								value={searchField}
-								onValueChange={(v) => setSearchField(v as "name" | "email")}
+								onValueChange={(value) =>
+									setSearchField(value as "name" | "email")
+								}
 							>
 								<SelectTrigger className="w-32">
 									<SelectValue />
@@ -593,7 +648,12 @@ function RouteComponent() {
 									<SelectItem value="email">Email</SelectItem>
 								</SelectContent>
 							</Select>
-							<Select value={roleFilter} onValueChange={setRoleFilter}>
+							<Select
+								value={roleFilter}
+								onValueChange={(value) =>
+									setRoleFilter(value as "all" | "user" | "admin")
+								}
+							>
 								<SelectTrigger className="w-32">
 									<SelectValue placeholder="Role" />
 								</SelectTrigger>
@@ -606,11 +666,7 @@ function RouteComponent() {
 							<Button onClick={fetchUsers}>Search</Button>
 						</div>
 
-						{loading ? (
-							<p className="py-8 text-center text-sm text-muted-foreground">
-								Loading users...
-							</p>
-						) : users.length === 0 ? (
+						{users.length === 0 ? (
 							<p className="py-8 text-center text-sm text-muted-foreground">
 								No users found.
 							</p>
@@ -657,9 +713,9 @@ function RouteComponent() {
 										</span>
 										<Select
 											value={String(pageSize)}
-											onValueChange={(v) => {
-												setPageSize(Number(v));
-												table.setPageSize(Number(v));
+											onValueChange={(value) => {
+												setPageSize(Number(value));
+												table.setPageSize(Number(value));
 											}}
 										>
 											<SelectTrigger className="h-8 w-16">
@@ -730,23 +786,21 @@ function RouteComponent() {
 							</p>
 						) : (
 							<div className="space-y-3">
-								{sessions.map((s) => (
+								{sessions.map((session) => (
 									<div
-										key={s.id}
+										key={session.id}
 										className="flex items-center justify-between rounded-lg border p-3"
 									>
 										<div className="space-y-1">
 											<p className="text-sm font-medium">
-												{s.userAgent ?? "Unknown device"}
+												{session.userAgent ?? "Unknown device"}
 											</p>
 											<p className="text-xs text-muted-foreground">
 												Created{" "}
-												{new Date(s.createdAt).toLocaleDateString()}
-												{s.ipAddress
-													? ` · ${s.ipAddress}`
-													: ""}
+												{new Date(session.createdAt).toLocaleDateString()}
+												{session.ipAddress ? ` · ${session.ipAddress}` : ""}
 											</p>
-											{s.impersonatedBy && (
+											{session.impersonatedBy && (
 												<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
 													Impersonated
 												</span>
@@ -756,16 +810,14 @@ function RouteComponent() {
 											variant="outline"
 											size="sm"
 											disabled={
-												revokingSessionToken === s.token ||
-												s.userId === currentUserId
+												revokingSessionToken === session.token ||
+												session.userId === currentUserId
 											}
-											onClick={() =>
-												handleRevokeSession(s.token)
-											}
+											onClick={() => handleRevokeSession(session)}
 										>
-											{revokingSessionToken === s.token
+											{revokingSessionToken === session.token
 												? "Revoking..."
-												: s.userId === currentUserId
+												: session.userId === currentUserId
 													? "Current"
 													: "Revoke"}
 										</Button>
@@ -779,136 +831,151 @@ function RouteComponent() {
 									variant="destructive"
 									disabled={revokingAll || sessionsLoading}
 									onClick={() =>
-										sessionsUser &&
-										handleRevokeAllSessions(sessionsUser.id)
+										sessionsUser && handleRevokeAllSessions(sessionsUser.id)
 									}
 								>
-									{revokingAll
-										? "Revoking all..."
-										: "Revoke all sessions"}
+									{revokingAll ? "Revoking all..." : "Revoke all sessions"}
 								</Button>
 							)}
-							<Button
-								variant="outline"
-								onClick={() => setSessionsUser(null)}
-							>
+							<Button variant="outline" onClick={() => setSessionsUser(null)}>
 								Close
 							</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
 
-				{(() => {
-					const user = users.find((u) => u.id === showBanDialog);
-					if (!user) return null;
-					return (
-						<Dialog open onOpenChange={() => setShowBanDialog(null)}>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Ban User</DialogTitle>
-									<DialogDescription>
-										{user.name} will be banned from the
-										platform.
-									</DialogDescription>
-								</DialogHeader>
-								<FieldGroup>
-									<Field>
-										<FieldLabel htmlFor="ban-reason">
-											Reason (optional)
-										</FieldLabel>
-										<Input
-											id="ban-reason"
-											value={banReason}
-											onChange={(e) =>
-												setBanReason(e.target.value)
-											}
-											placeholder="Spamming"
-										/>
-									</Field>
-									<Field>
-										<FieldLabel htmlFor="ban-expires">
-											Expires in seconds (optional)
-										</FieldLabel>
-										<Input
-											id="ban-expires"
-											type="number"
-											value={banExpiresIn}
-											onChange={(e) =>
-												setBanExpiresIn(e.target.value)
-											}
-											placeholder="604800 (7 days)"
-										/>
-									</Field>
-								</FieldGroup>
-								<DialogFooter>
-									<Button
-										variant="outline"
-										onClick={() => {
-											setShowBanDialog(null);
-											setBanReason("");
-											setBanExpiresIn("");
-										}}
-									>
-										Cancel
-									</Button>
-									<Button
-										variant="destructive"
-										disabled={banningId === user.id}
-										onClick={() => handleBan(user.id)}
-									>
-										{banningId === user.id
-											? "Banning..."
-											: "Ban"}
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
-					);
-				})()}
+				<BanUserDialog
+					user={users.find((user) => user.id === showBanDialog) ?? null}
+					banReason={banReason}
+					banExpiresIn={banExpiresIn}
+					banningId={banningId}
+					onBan={handleBan}
+					onCancel={() => {
+						setShowBanDialog(null);
+						setBanReason("");
+						setBanExpiresIn("");
+					}}
+					onReasonChange={setBanReason}
+					onExpiresChange={setBanExpiresIn}
+				/>
 
-				{(() => {
-					const user = users.find(
-						(u) => u.id === showDeleteDialog,
-					);
-					if (!user) return null;
-					return (
-						<Dialog
-							open
-							onOpenChange={() => setShowDeleteDialog(null)}
-						>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Delete User</DialogTitle>
-									<DialogDescription>
-										Are you sure you want to delete{" "}
-										{user.name}? This action cannot be
-										undone.
-									</DialogDescription>
-								</DialogHeader>
-								<DialogFooter>
-									<Button
-										variant="outline"
-										onClick={() =>
-											setShowDeleteDialog(null)
-										}
-									>
-										Cancel
-									</Button>
-									<Button
-										variant="destructive"
-										disabled={deletingId === user.id}
-										onClick={() => handleDelete(user.id)}
-									>
-										{deletingId === user.id
-											? "Deleting..."
-											: "Delete"}
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
-					);
-				})()}
+				<DeleteUserDialog
+					user={users.find((user) => user.id === showDeleteDialog) ?? null}
+					deletingId={deletingId}
+					onDelete={handleDelete}
+					onCancel={() => setShowDeleteDialog(null)}
+				/>
 			</div>
 		</ProtectedLayout>
+	);
+}
+
+function BanUserDialog({
+	user,
+	banReason,
+	banExpiresIn,
+	banningId,
+	onBan,
+	onCancel,
+	onReasonChange,
+	onExpiresChange,
+}: {
+	user: AdminUser | null;
+	banReason: string;
+	banExpiresIn: string;
+	banningId: string | null;
+	onBan: (userId: string) => void;
+	onCancel: () => void;
+	onReasonChange: (value: string) => void;
+	onExpiresChange: (value: string) => void;
+}) {
+	if (!user) return null;
+
+	return (
+		<Dialog open onOpenChange={onCancel}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Ban User</DialogTitle>
+					<DialogDescription>
+						{user.name} will be banned from the platform.
+					</DialogDescription>
+				</DialogHeader>
+				<FieldGroup>
+					<Field>
+						<FieldLabel htmlFor="ban-reason">Reason (optional)</FieldLabel>
+						<Input
+							id="ban-reason"
+							value={banReason}
+							onChange={(event) => onReasonChange(event.target.value)}
+							placeholder="Spamming"
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="ban-expires">
+							Expires in seconds (optional)
+						</FieldLabel>
+						<Input
+							id="ban-expires"
+							type="number"
+							value={banExpiresIn}
+							onChange={(event) => onExpiresChange(event.target.value)}
+							placeholder="604800 (7 days)"
+						/>
+					</Field>
+				</FieldGroup>
+				<DialogFooter>
+					<Button variant="outline" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button
+						variant="destructive"
+						disabled={banningId === user.id}
+						onClick={() => onBan(user.id)}
+					>
+						{banningId === user.id ? "Banning..." : "Ban"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function DeleteUserDialog({
+	user,
+	deletingId,
+	onDelete,
+	onCancel,
+}: {
+	user: AdminUser | null;
+	deletingId: string | null;
+	onDelete: (userId: string) => void;
+	onCancel: () => void;
+}) {
+	if (!user) return null;
+
+	return (
+		<Dialog open onOpenChange={onCancel}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Delete User</DialogTitle>
+					<DialogDescription>
+						Are you sure you want to delete {user.name}? This action cannot be
+						undone.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<Button variant="outline" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button
+						variant="destructive"
+						disabled={deletingId === user.id}
+						onClick={() => onDelete(user.id)}
+					>
+						{deletingId === user.id ? "Deleting..." : "Delete"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

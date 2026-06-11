@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Building2, LogOut, Trash2, UserMinus, UserPlus } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { ProtectedLayout } from "#/components/protected-layout";
 import { Avatar, AvatarFallback } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -38,13 +40,29 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
-import { ProtectedLayout } from "#/components/protected-layout";
-import { authClient } from "#/lib/auth-client";
-import { addOrgOwner } from "#/lib/auth.functions";
+import {
+	addOrgOwner,
+	cancelOrganizationInvitation,
+	deleteOrganization,
+	getActiveOrganizationManagement,
+	inviteOrganizationMember,
+	leaveOrganization,
+	type OrganizationInvitation,
+	type OrganizationMember,
+	removeOrganizationMember,
+	transferOrganizationOwnership,
+	updateOrganizationDetails,
+	updateOrganizationMemberRole,
+} from "#/features/organizations/organization.functions";
 
 export const Route = createFileRoute("/_protected/organization")({
+	loader: async () => getActiveOrganizationManagement(),
 	component: RouteComponent,
 });
+
+function getErrorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
+}
 
 function roleBadgeVariant(role: string) {
 	switch (role) {
@@ -71,18 +89,47 @@ function initials(name: string) {
 function OverviewTab({
 	org,
 	orgId,
+	members,
 	isPlatformAdmin,
 }: {
 	org: { name: string; slug: string };
 	orgId: string;
+	members: OrganizationMember[];
 	isPlatformAdmin: boolean;
 }) {
-	const { data: activeOrg } = authClient.useActiveOrganization();
-	const members = (activeOrg as any)?.members as MemberData[] | undefined;
-
+	const router = useRouter();
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState("member");
 	const [inviting, setInviting] = useState(false);
+
+	const inviteMutation = useMutation({
+		mutationFn: (data: {
+			organizationId: string;
+			email: string;
+			role: "admin" | "member";
+		}) => inviteOrganizationMember({ data }),
+		onSuccess: async () => {
+			toast.success("Invitation sent");
+			setInviteEmail("");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to send invitation"));
+		},
+	});
+
+	const addOwnerMutation = useMutation({
+		mutationFn: (data: { organizationId: string; email: string }) =>
+			addOrgOwner({ data }),
+		onSuccess: async () => {
+			toast.success("Owner added");
+			setInviteEmail("");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to add owner"));
+		},
+	});
 
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -90,27 +137,17 @@ function OverviewTab({
 		setInviting(true);
 
 		if (inviteRole === "owner") {
-			const { error } = await addOrgOwner({
-				data: { organizationId: orgId, email: inviteEmail.trim() },
-			});
-			if (error) {
-				toast.error(error.message ?? "Failed to add owner");
-			} else {
-				toast.success("Owner added");
-				setInviteEmail("");
-			}
+			await addOwnerMutation
+				.mutateAsync({ organizationId: orgId, email: inviteEmail.trim() })
+				.catch(() => undefined);
 		} else {
-			const { error } = await authClient.organization.inviteMember({
-				organizationId: orgId,
-				email: inviteEmail.trim(),
-				role: inviteRole,
-			});
-			if (error) {
-				toast.error(error.message ?? "Failed to send invitation");
-			} else {
-				toast.success("Invitation sent");
-				setInviteEmail("");
-			}
+			await inviteMutation
+				.mutateAsync({
+					organizationId: orgId,
+					email: inviteEmail.trim(),
+					role: inviteRole as "admin" | "member",
+				})
+				.catch(() => undefined);
 		}
 		setInviting(false);
 	};
@@ -179,88 +216,91 @@ function OverviewTab({
 
 // ─── Members tab ──────────────────────────────────────────
 
-interface MemberData {
-	id: string;
-	userId: string;
-	role: string;
-	user: {
-		id: string;
-		name: string;
-		email: string;
-		image?: string | null;
-	};
-}
-
 function MembersTab({
 	orgId,
+	members,
 	memberRole,
 	isPlatformAdmin,
 }: {
 	orgId: string;
+	members: OrganizationMember[];
 	memberRole: string;
 	isPlatformAdmin: boolean;
 }) {
-	const { data: activeOrg } = authClient.useActiveOrganization();
-	const members = (activeOrg as any)?.members as MemberData[] | undefined;
+	const router = useRouter();
 	const [changingRole, setChangingRole] = useState<string | null>(null);
 	const [removing, setRemoving] = useState<string | null>(null);
 	const [transferOpen, setTransferOpen] = useState(false);
 	const [transferTarget, setTransferTarget] = useState<string | null>(null);
 	const [transferring, setTransferring] = useState(false);
 
+	const updateRoleMutation = useMutation({
+		mutationFn: (data: {
+			organizationId: string;
+			memberId: string;
+			role: "admin" | "member";
+		}) => updateOrganizationMemberRole({ data }),
+		onSuccess: async () => {
+			toast.success("Role updated");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to update role"));
+		},
+	});
+
+	const removeMemberMutation = useMutation({
+		mutationFn: (data: { organizationId: string; memberIdOrEmail: string }) =>
+			removeOrganizationMember({ data }),
+		onSuccess: async () => {
+			toast.success("Member removed");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to remove member"));
+		},
+	});
+
+	const transferOwnershipMutation = useMutation({
+		mutationFn: (data: { organizationId: string; targetMemberId: string }) =>
+			transferOrganizationOwnership({ data }),
+		onSuccess: async () => {
+			toast.success("Ownership transferred");
+			setTransferOpen(false);
+			setTransferTarget(null);
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to transfer ownership"));
+		},
+	});
+
 	const handleRoleChange = async (memberId: string, role: string) => {
 		setChangingRole(memberId);
-		const { error } = await authClient.organization.updateMemberRole({
-			memberId,
-			role,
-			organizationId: orgId,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to update role");
-		} else {
-			toast.success("Role updated");
-		}
+		await updateRoleMutation
+			.mutateAsync({
+				memberId,
+				role: role as "admin" | "member",
+				organizationId: orgId,
+			})
+			.catch(() => undefined);
 		setChangingRole(null);
 	};
 
 	const handleRemove = async (memberIdOrEmail: string) => {
 		setRemoving(memberIdOrEmail);
-		const { error } = await authClient.organization.removeMember({
-			memberIdOrEmail,
-			organizationId: orgId,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to remove member");
-		} else {
-			toast.success("Member removed");
-		}
+		await removeMemberMutation
+			.mutateAsync({ memberIdOrEmail, organizationId: orgId })
+			.catch(() => undefined);
 		setRemoving(null);
 	};
 
 	const handleTransfer = async () => {
 		if (!transferTarget) return;
 		setTransferring(true);
-		const { error: promoteError } = await authClient.organization.updateMemberRole({
-			memberId: transferTarget,
-			role: "owner",
-			organizationId: orgId,
-		});
-		if (promoteError) {
-			toast.error(promoteError.message ?? "Failed to transfer ownership");
-			setTransferring(false);
-			return;
-		}
-		const currentOwner = members?.find((m) => m.role === "owner");
-		if (currentOwner) {
-			await authClient.organization.updateMemberRole({
-				memberId: currentOwner.id,
-				role: "admin",
-				organizationId: orgId,
-			});
-		}
-		toast.success("Ownership transferred");
-		setTransferOpen(false);
-		setTransferTarget(null);
+		await transferOwnershipMutation
+			.mutateAsync({ organizationId: orgId, targetMemberId: transferTarget })
+			.catch(() => undefined);
 		setTransferring(false);
 	};
 
@@ -275,15 +315,17 @@ function MembersTab({
 								{members?.length ?? 0} member{members?.length !== 1 ? "s" : ""}
 							</CardDescription>
 						</div>
-						{(memberRole === "owner" || isPlatformAdmin) && members && members.length > 1 && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setTransferOpen(true)}
-							>
-								Transfer ownership
-							</Button>
-						)}
+						{(memberRole === "owner" || isPlatformAdmin) &&
+							members &&
+							members.length > 1 && (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setTransferOpen(true)}
+								>
+									Transfer ownership
+								</Button>
+							)}
 					</div>
 				</CardHeader>
 				<CardContent>
@@ -305,7 +347,9 @@ function MembersTab({
 											<div className="flex items-center gap-3">
 												<Avatar className="size-8">
 													<AvatarFallback>
-														{initials(member.user.name ?? member.user.email ?? "?")}
+														{initials(
+															member.user.name ?? member.user.email ?? "?",
+														)}
 													</AvatarFallback>
 												</Avatar>
 												<div>
@@ -322,9 +366,7 @@ function MembersTab({
 										</TableCell>
 										<TableCell>
 											{isOwner ? (
-												<Badge variant={roleBadgeVariant("owner")}>
-													owner
-												</Badge>
+												<Badge variant={roleBadgeVariant("owner")}>owner</Badge>
 											) : memberRole === "owner" || isPlatformAdmin ? (
 												<Select
 													value={member.role}
@@ -348,17 +390,18 @@ function MembersTab({
 											)}
 										</TableCell>
 										<TableCell>
-											{!isOwner && (memberRole === "owner" || isPlatformAdmin) && (
-												<Button
-													variant="ghost"
-													size="sm"
-													className="text-destructive"
-													disabled={removing === member.id}
-													onClick={() => handleRemove(member.id)}
-												>
-													<UserMinus className="size-4" />
-												</Button>
-											)}
+											{!isOwner &&
+												(memberRole === "owner" || isPlatformAdmin) && (
+													<Button
+														variant="ghost"
+														size="sm"
+														className="text-destructive"
+														disabled={removing === member.id}
+														onClick={() => handleRemove(member.id)}
+													>
+														<UserMinus className="size-4" />
+													</Button>
+												)}
 										</TableCell>
 									</TableRow>
 								);
@@ -373,7 +416,8 @@ function MembersTab({
 					<DialogHeader>
 						<DialogTitle>Transfer ownership</DialogTitle>
 						<DialogDescription>
-							Select a member to become the new owner. You will be demoted to admin.
+							Select a member to become the new owner. You will be demoted to
+							admin.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-3">
@@ -404,17 +448,16 @@ function MembersTab({
 											{m.user.name ?? m.user.email}
 										</p>
 										{m.user.name && (
-											<p className="text-xs text-muted-foreground">{m.user.email}</p>
+											<p className="text-xs text-muted-foreground">
+												{m.user.email}
+											</p>
 										)}
 									</div>
 								</label>
 							))}
 					</div>
 					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setTransferOpen(false)}
-						>
+						<Button variant="outline" onClick={() => setTransferOpen(false)}>
 							Cancel
 						</Button>
 						<Button
@@ -434,25 +477,59 @@ function MembersTab({
 
 function InvitationsTab({
 	orgId,
+	invitations,
 	isPlatformAdmin,
 }: {
 	orgId: string;
+	invitations: OrganizationInvitation[];
 	isPlatformAdmin: boolean;
 }) {
-	const { data: activeOrg } = authClient.useActiveOrganization();
-	const pendingInvitations = (activeOrg as any)?.invitations as
-		| Array<{
-				id: string;
-				email: string;
-				role: string;
-				status: string;
-				expiresAt: string;
-		  }>
-		| undefined;
-
+	const router = useRouter();
+	const pendingInvitations = invitations;
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState("member");
 	const [inviting, setInviting] = useState(false);
+
+	const inviteMutation = useMutation({
+		mutationFn: (data: {
+			organizationId: string;
+			email: string;
+			role: "admin" | "member";
+		}) => inviteOrganizationMember({ data }),
+		onSuccess: async () => {
+			toast.success("Invitation sent");
+			setInviteEmail("");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to send invitation"));
+		},
+	});
+
+	const addOwnerMutation = useMutation({
+		mutationFn: (data: { organizationId: string; email: string }) =>
+			addOrgOwner({ data }),
+		onSuccess: async () => {
+			toast.success("Owner added");
+			setInviteEmail("");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to add owner"));
+		},
+	});
+
+	const cancelInvitationMutation = useMutation({
+		mutationFn: (data: { organizationId: string; invitationId: string }) =>
+			cancelOrganizationInvitation({ data }),
+		onSuccess: async () => {
+			toast.success("Invitation cancelled");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to cancel invitation"));
+		},
+	});
 
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -460,40 +537,23 @@ function InvitationsTab({
 		setInviting(true);
 
 		if (inviteRole === "owner") {
-			const { error } = await addOrgOwner({
-				data: { organizationId: orgId, email: inviteEmail.trim() },
-			});
-			if (error) {
-				toast.error(error.message ?? "Failed to add owner");
-			} else {
-				toast.success("Owner added");
-				setInviteEmail("");
-			}
+			await addOwnerMutation
+				.mutateAsync({ organizationId: orgId, email: inviteEmail.trim() })
+				.catch(() => undefined);
 		} else {
-			const { error } = await authClient.organization.inviteMember({
-				organizationId: orgId,
-				email: inviteEmail.trim(),
-				role: inviteRole,
-			});
-			if (error) {
-				toast.error(error.message ?? "Failed to send invitation");
-			} else {
-				toast.success("Invitation sent");
-				setInviteEmail("");
-			}
+			await inviteMutation
+				.mutateAsync({
+					organizationId: orgId,
+					email: inviteEmail.trim(),
+					role: inviteRole as "admin" | "member",
+				})
+				.catch(() => undefined);
 		}
 		setInviting(false);
 	};
 
 	const handleCancel = async (invitationId: string) => {
-		const { error } = await authClient.organization.cancelInvitation({
-			invitationId,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to cancel invitation");
-		} else {
-			toast.success("Invitation cancelled");
-		}
+		cancelInvitationMutation.mutate({ organizationId: orgId, invitationId });
 	};
 
 	return (
@@ -612,6 +672,7 @@ function SettingsTab({
 	memberRole: string;
 	isPlatformAdmin: boolean;
 }) {
+	const router = useRouter();
 	const isOwner = memberRole === "owner";
 	const [name, setName] = useState(org.name);
 	const [slug, setSlug] = useState(org.slug);
@@ -624,51 +685,74 @@ function SettingsTab({
 	const [deleteConfirm, setDeleteConfirm] = useState("");
 	const [deleting, setDeleting] = useState(false);
 
+	const updateDetailsMutation = useMutation({
+		mutationFn: (data: {
+			organizationId: string;
+			name: string;
+			slug: string;
+		}) => updateOrganizationDetails({ data }),
+		onSuccess: async () => {
+			toast.success("Organization updated");
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to update organization"));
+		},
+	});
+
+	const leaveMutation = useMutation({
+		mutationFn: (data: { organizationId: string }) =>
+			leaveOrganization({ data }),
+		onSuccess: () => {
+			toast.success("Left organization");
+			setLeaveOpen(false);
+			window.location.href = "/dashboard";
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to leave organization"));
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (data: { organizationId: string }) =>
+			deleteOrganization({ data }),
+		onSuccess: () => {
+			toast.success("Organization deleted");
+			setDeleteOpen(false);
+			window.location.href = "/dashboard";
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Failed to delete organization"));
+		},
+	});
+
 	const handleSave = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setSaving(true);
-		const { error } = await authClient.organization.update({
-			organizationId: orgId,
-			data: { name: name.trim(), slug: slug.trim() },
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to update organization");
-		} else {
-			toast.success("Organization updated");
-		}
+		await updateDetailsMutation
+			.mutateAsync({
+				organizationId: orgId,
+				name: name.trim(),
+				slug: slug.trim(),
+			})
+			.catch(() => undefined);
 		setSaving(false);
 	};
 
 	const handleLeave = async () => {
 		setLeaving(true);
-		const { error } = await authClient.organization.leave({
-			organizationId: orgId,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to leave organization");
-			setLeaving(false);
-			return;
-		}
-		toast.success("Left organization");
-		setLeaveOpen(false);
+		await leaveMutation
+			.mutateAsync({ organizationId: orgId })
+			.catch(() => undefined);
 		setLeaving(false);
-		window.location.href = "/dashboard";
 	};
 
 	const handleDelete = async () => {
 		setDeleting(true);
-		const { error } = await authClient.organization.delete({
-			organizationId: orgId,
-		});
-		if (error) {
-			toast.error(error.message ?? "Failed to delete organization");
-			setDeleting(false);
-			return;
-		}
-		toast.success("Organization deleted");
-		setDeleteOpen(false);
+		await deleteMutation
+			.mutateAsync({ organizationId: orgId })
+			.catch(() => undefined);
 		setDeleting(false);
-		window.location.href = "/dashboard";
 	};
 
 	return (
@@ -719,14 +803,12 @@ function SettingsTab({
 							Leave organization
 						</CardTitle>
 						<CardDescription>
-							Once you leave, you'll lose access to this organization's resources.
+							Once you leave, you'll lose access to this organization's
+							resources.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<Button
-							variant="destructive"
-							onClick={() => setLeaveOpen(true)}
-						>
+						<Button variant="destructive" onClick={() => setLeaveOpen(true)}>
 							<LogOut className="size-4" />
 							Leave organization
 						</Button>
@@ -746,10 +828,7 @@ function SettingsTab({
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<Button
-							variant="destructive"
-							onClick={() => setDeleteOpen(true)}
-						>
+						<Button variant="destructive" onClick={() => setDeleteOpen(true)}>
 							<Trash2 className="size-4" />
 							Delete organization
 						</Button>
@@ -767,10 +846,7 @@ function SettingsTab({
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setLeaveOpen(false)}
-						>
+						<Button variant="outline" onClick={() => setLeaveOpen(false)}>
 							Cancel
 						</Button>
 						<Button
@@ -790,8 +866,8 @@ function SettingsTab({
 						<DialogTitle>Delete organization</DialogTitle>
 						<DialogDescription>
 							This will permanently delete <strong>{org.name}</strong> and all
-							members, invitations, and data. Type{" "}
-							<strong>{org.slug}</strong> to confirm.
+							members, invitations, and data. Type <strong>{org.slug}</strong>{" "}
+							to confirm.
 						</DialogDescription>
 					</DialogHeader>
 					<Input
@@ -844,17 +920,13 @@ function NoOrgState() {
 // ─── Route component ──────────────────────────────────────
 
 function RouteComponent() {
-	const { data: activeOrg } = authClient.useActiveOrganization();
-	const { data: session } = authClient.useSession();
-
-	const members = (activeOrg as any)?.members as
-		| Array<{ userId: string; role: string }>
-		| undefined;
-	const currentMember = members?.find(
-		(m) => m.userId === session?.user?.id,
-	);
-	const memberRole = currentMember?.role ?? "member";
-	const isPlatformAdmin = session?.user?.role === "admin";
+	const {
+		organization: activeOrg,
+		members,
+		invitations,
+		currentMemberRole: memberRole,
+		isPlatformAdmin,
+	} = Route.useLoaderData();
 
 	if (!activeOrg) {
 		return (
@@ -882,12 +954,14 @@ function RouteComponent() {
 					<OverviewTab
 						org={activeOrg}
 						orgId={activeOrg.id}
+						members={members}
 						isPlatformAdmin={isPlatformAdmin}
 					/>
 				</TabsContent>
 				<TabsContent value="members">
 					<MembersTab
 						orgId={activeOrg.id}
+						members={members}
 						memberRole={memberRole}
 						isPlatformAdmin={isPlatformAdmin}
 					/>
@@ -895,6 +969,7 @@ function RouteComponent() {
 				<TabsContent value="invitations">
 					<InvitationsTab
 						orgId={activeOrg.id}
+						invitations={invitations}
 						isPlatformAdmin={isPlatformAdmin}
 					/>
 				</TabsContent>
