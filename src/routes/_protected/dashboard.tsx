@@ -1,6 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { ProtectedLayout } from "#/components/protected-layout";
-import { authClient } from "#/lib/auth-client";
 import { Badge } from "#/components/ui/badge";
 import {
 	Card,
@@ -8,6 +7,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
+
+const protectedRoute = getRouteApi("/_protected");
 
 export const Route = createFileRoute("/_protected/dashboard")({
 	component: RouteComponent,
@@ -23,9 +24,9 @@ function roleVariant(role: string | null | undefined) {
 }
 
 function RouteComponent() {
-	const { data: session } = authClient.useSession();
-	const role = session?.user?.role;
-	const name = session?.user?.name;
+	const { user } = protectedRoute.useLoaderData();
+	const role = user.role;
+	const name = user.name;
 
 	return (
 		<ProtectedLayout breadcrumbs={[{ label: "Dashboard" }]}>
@@ -35,7 +36,7 @@ function RouteComponent() {
 						<CardTitle>Welcome back{name ? `, ${name}` : ""}</CardTitle>
 						{role && <Badge variant={roleVariant(role)}>{role}</Badge>}
 					</div>
-					<CardDescription>{session?.user?.email}</CardDescription>
+					<CardDescription>{user.email}</CardDescription>
 				</CardHeader>
 			</Card>
 			<div className="grid auto-rows-min gap-4 md:grid-cols-3">

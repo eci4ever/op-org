@@ -1,5 +1,14 @@
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
+import {
+	BriefcaseBusiness,
+	ChevronsUpDown,
+	Plus,
+	Settings,
+} from "lucide-react";
 import { useState } from "react";
-import { BriefcaseBusiness, ChevronsUpDown, Plus, Settings } from "lucide-react";
+import { toast } from "sonner";
+import { CreateOrgDialog } from "#/components/create-org-dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,18 +18,40 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { SidebarMenuButton, useSidebar } from "#/components/ui/sidebar";
-import { authClient } from "#/lib/auth-client";
-import { CreateOrgDialog } from "#/components/create-org-dialog";
+import {
+	type ShellOrganization,
+	setActiveShellOrganization,
+} from "#/features/shell/shell.functions";
 
-export function TeamSwitcher() {
+export function TeamSwitcher({
+	activeOrganization,
+	isAdmin,
+	organizations,
+}: {
+	activeOrganization: ShellOrganization | null;
+	isAdmin: boolean;
+	organizations: ShellOrganization[];
+}) {
 	const { isMobile } = useSidebar();
-	const { data: session } = authClient.useSession();
-	const { data: activeOrg } = authClient.useActiveOrganization();
-	const { data: organizations } = authClient.useListOrganizations();
+	const router = useRouter();
 	const [createOpen, setCreateOpen] = useState(false);
 
-	const currentOrg = activeOrg ?? null;
-	const orgs = organizations ?? [];
+	const setActiveMutation = useMutation({
+		mutationFn: (data: { organizationId: string }) =>
+			setActiveShellOrganization({ data }),
+		onSuccess: async () => {
+			await router.invalidate();
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to switch organization",
+			);
+		},
+	});
+
+	const currentOrg = activeOrganization;
 
 	return (
 		<>
@@ -54,12 +85,12 @@ export function TeamSwitcher() {
 					<DropdownMenuLabel className="text-xs text-muted-foreground">
 						Workspaces
 					</DropdownMenuLabel>
-					{orgs.length > 0 ? (
-						orgs.map((org) => (
+					{organizations.length > 0 ? (
+						organizations.map((org) => (
 							<DropdownMenuItem
 								key={org.id}
 								onClick={() =>
-									authClient.organization.setActive({ organizationId: org.id })
+									setActiveMutation.mutate({ organizationId: org.id })
 								}
 								className="gap-2 p-2"
 							>
@@ -70,12 +101,15 @@ export function TeamSwitcher() {
 							</DropdownMenuItem>
 						))
 					) : (
-						<DropdownMenuItem disabled className="gap-2 p-2 text-muted-foreground">
+						<DropdownMenuItem
+							disabled
+							className="gap-2 p-2 text-muted-foreground"
+						>
 							No workspaces yet
 						</DropdownMenuItem>
 					)}
 					<DropdownMenuSeparator />
-					{session?.user?.role === "admin" && (
+					{isAdmin && (
 						<DropdownMenuItem
 							onClick={() => setCreateOpen(true)}
 							className="gap-2 p-2"
@@ -95,7 +129,11 @@ export function TeamSwitcher() {
 					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<CreateOrgDialog open={createOpen} onOpenChange={setCreateOpen} />
+			<CreateOrgDialog
+				open={createOpen}
+				onCreated={() => router.invalidate()}
+				onOpenChange={setCreateOpen}
+			/>
 		</>
 	);
 }

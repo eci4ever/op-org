@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboard, Shield, Globe } from "lucide-react";
+import { Building2, Globe, LayoutDashboard, Shield } from "lucide-react";
 
 import { NavMain } from "#/components/nav-main.tsx";
 import { NavUser } from "#/components/nav-user.tsx";
@@ -12,7 +12,7 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "#/components/ui/sidebar.tsx";
-import { authClient } from "#/lib/auth-client.ts";
+import type { ProtectedShellData } from "#/features/shell/shell.functions";
 
 const navMain = [
 	{
@@ -44,38 +44,45 @@ const orgNavItems = [
 	},
 ];
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-	const { data: session } = authClient.useSession();
-	const { data: activeOrg } = authClient.useActiveOrganization();
-
-	const user = session?.user
-		? {
-				name: session.user.name,
-				email: session.user.email,
-				avatar: session.user.image ?? "",
-			}
-		: { name: "User", email: "", avatar: "" };
-
+export function AppSidebar({
+	shellData,
+	...props
+}: React.ComponentProps<typeof Sidebar> & {
+	shellData: ProtectedShellData;
+}) {
 	return (
 		<Sidebar collapsible="icon" {...props}>
 			<SidebarHeader>
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<TeamSwitcher />
+						<TeamSwitcher
+							activeOrganization={shellData.activeOrganization}
+							isAdmin={shellData.isAdmin}
+							organizations={shellData.organizations}
+						/>
 					</SidebarMenuItem>
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />
-				{activeOrg && (
-					<NavMain items={orgNavItems} label={activeOrg.name} />
+				{shellData.activeOrganization && (
+					<NavMain
+						items={orgNavItems}
+						label={shellData.activeOrganization.name}
+					/>
 				)}
-				{session?.user?.role === "admin" && (
+				{shellData.isAdmin && (
 					<NavMain items={adminNav} label="Administration" />
 				)}
 			</SidebarContent>
 			<SidebarFooter>
-				<NavUser user={user} />
+				<NavUser
+					user={{
+						name: shellData.user.name,
+						email: shellData.user.email,
+						avatar: shellData.user.image ?? "",
+					}}
+				/>
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
