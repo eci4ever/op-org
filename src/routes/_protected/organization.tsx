@@ -1,11 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Building2, LogOut, Trash2, UserMinus, UserPlus } from "lucide-react";
+import { Building2, LogOut, Trash2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
-import { Avatar, AvatarFallback } from "#/components/ui/avatar";
-import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -31,14 +29,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
 	addOrgOwner,
@@ -54,6 +44,8 @@ import {
 	updateOrganizationDetails,
 	updateOrganizationMemberRole,
 } from "#/features/organizations/organization.functions";
+import { OrganizationInvitationsTable } from "#/features/organizations/organization-invitations-table";
+import { OrganizationMembersTable } from "#/features/organizations/organization-members-table";
 
 export const Route = createFileRoute("/_protected/organization")({
 	loader: async () => getActiveOrganizationManagement(),
@@ -62,26 +54,6 @@ export const Route = createFileRoute("/_protected/organization")({
 
 function getErrorMessage(error: unknown, fallback: string) {
 	return error instanceof Error ? error.message : fallback;
-}
-
-function roleBadgeVariant(role: string) {
-	switch (role) {
-		case "owner":
-			return "default" as const;
-		case "admin":
-			return "secondary" as const;
-		default:
-			return "outline" as const;
-	}
-}
-
-function initials(name: string) {
-	return name
-		.split(" ")
-		.map((n) => n[0])
-		.join("")
-		.toUpperCase()
-		.slice(0, 2);
 }
 
 // ─── Overview tab ─────────────────────────────────────────
@@ -305,171 +277,21 @@ function MembersTab({
 	};
 
 	return (
-		<>
-			<Card>
-				<CardHeader>
-					<div className="flex items-center justify-between">
-						<div>
-							<CardTitle className="text-base">Members</CardTitle>
-							<CardDescription>
-								{members?.length ?? 0} member{members?.length !== 1 ? "s" : ""}
-							</CardDescription>
-						</div>
-						{(memberRole === "owner" || isPlatformAdmin) &&
-							members &&
-							members.length > 1 && (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setTransferOpen(true)}
-								>
-									Transfer ownership
-								</Button>
-							)}
-					</div>
-				</CardHeader>
-				<CardContent>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Member</TableHead>
-								<TableHead>Role</TableHead>
-								<TableHead className="w-40">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{members?.map((member) => {
-								const isOwner = member.role === "owner";
-
-								return (
-									<TableRow key={member.id}>
-										<TableCell>
-											<div className="flex items-center gap-3">
-												<Avatar className="size-8">
-													<AvatarFallback>
-														{initials(
-															member.user.name ?? member.user.email ?? "?",
-														)}
-													</AvatarFallback>
-												</Avatar>
-												<div>
-													<p className="text-sm font-medium">
-														{member.user.name ?? member.user.email}
-													</p>
-													{member.user.name && (
-														<p className="text-xs text-muted-foreground">
-															{member.user.email}
-														</p>
-													)}
-												</div>
-											</div>
-										</TableCell>
-										<TableCell>
-											{isOwner ? (
-												<Badge variant={roleBadgeVariant("owner")}>owner</Badge>
-											) : memberRole === "owner" || isPlatformAdmin ? (
-												<Select
-													value={member.role}
-													onValueChange={(role) =>
-														handleRoleChange(member.id, role)
-													}
-													disabled={changingRole === member.id}
-												>
-													<SelectTrigger className="h-7 w-28 text-xs">
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="admin">admin</SelectItem>
-														<SelectItem value="member">member</SelectItem>
-													</SelectContent>
-												</Select>
-											) : (
-												<Badge variant={roleBadgeVariant(member.role)}>
-													{member.role}
-												</Badge>
-											)}
-										</TableCell>
-										<TableCell>
-											{!isOwner &&
-												(memberRole === "owner" || isPlatformAdmin) && (
-													<Button
-														variant="ghost"
-														size="sm"
-														className="text-destructive"
-														disabled={removing === member.id}
-														onClick={() => handleRemove(member.id)}
-													>
-														<UserMinus className="size-4" />
-													</Button>
-												)}
-										</TableCell>
-									</TableRow>
-								);
-							})}
-						</TableBody>
-					</Table>
-				</CardContent>
-			</Card>
-
-			<Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Transfer ownership</DialogTitle>
-						<DialogDescription>
-							Select a member to become the new owner. You will be demoted to
-							admin.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="grid gap-3">
-						{members
-							?.filter((m) => m.role !== "owner")
-							.map((m) => (
-								<label
-									key={m.id}
-									className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted ${
-										transferTarget === m.id ? "border-primary bg-muted" : ""
-									}`}
-								>
-									<input
-										type="radio"
-										name="transfer"
-										value={m.id}
-										checked={transferTarget === m.id}
-										onChange={() => setTransferTarget(m.id)}
-										className="size-4 accent-primary"
-									/>
-									<Avatar className="size-8">
-										<AvatarFallback>
-											{initials(m.user.name ?? m.user.email ?? "?")}
-										</AvatarFallback>
-									</Avatar>
-									<div>
-										<p className="text-sm font-medium">
-											{m.user.name ?? m.user.email}
-										</p>
-										{m.user.name && (
-											<p className="text-xs text-muted-foreground">
-												{m.user.email}
-											</p>
-										)}
-									</div>
-								</label>
-							))}
-					</div>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setTransferOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							disabled={!transferTarget || transferring}
-							onClick={handleTransfer}
-						>
-							{transferring ? "Transferring..." : "Transfer ownership"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
+		<OrganizationMembersTable
+			members={members}
+			memberRole={memberRole}
+			isPlatformAdmin={isPlatformAdmin}
+			changingRole={changingRole}
+			removing={removing}
+			transferOpen={transferOpen}
+			transferTarget={transferTarget}
+			transferring={transferring}
+			onTransferOpenChange={setTransferOpen}
+			onTransferTargetChange={setTransferTarget}
+			onRoleChange={handleRoleChange}
+			onRemove={handleRemove}
+			onTransfer={handleTransfer}
+		/>
 	);
 }
 
@@ -485,7 +307,6 @@ function InvitationsTab({
 	isPlatformAdmin: boolean;
 }) {
 	const router = useRouter();
-	const pendingInvitations = invitations;
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState("member");
 	const [inviting, setInviting] = useState(false);
@@ -599,62 +420,10 @@ function InvitationsTab({
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-base">Pending invitations</CardTitle>
-					<CardDescription>
-						{pendingInvitations?.length ?? 0} pending invitation
-						{pendingInvitations?.length !== 1 ? "s" : ""}
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					{pendingInvitations && pendingInvitations.length > 0 ? (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Email</TableHead>
-									<TableHead>Role</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead>Expires</TableHead>
-									<TableHead className="w-20" />
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{pendingInvitations.map((inv) => (
-									<TableRow key={inv.id}>
-										<TableCell className="font-medium">{inv.email}</TableCell>
-										<TableCell>
-											<Badge variant={roleBadgeVariant(inv.role ?? "member")}>
-												{inv.role ?? "member"}
-											</Badge>
-										</TableCell>
-										<TableCell className="capitalize">{inv.status}</TableCell>
-										<TableCell className="text-xs text-muted-foreground">
-											{new Date(inv.expiresAt).toLocaleDateString()}
-										</TableCell>
-										<TableCell>
-											{inv.status === "pending" && (
-												<Button
-													variant="ghost"
-													size="sm"
-													className="text-destructive"
-													onClick={() => handleCancel(inv.id)}
-												>
-													Cancel
-												</Button>
-											)}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<p className="text-sm text-muted-foreground">
-							No pending invitations.
-						</p>
-					)}
-				</CardContent>
-			</Card>
+			<OrganizationInvitationsTable
+				invitations={invitations}
+				onCancel={handleCancel}
+			/>
 		</div>
 	);
 }
