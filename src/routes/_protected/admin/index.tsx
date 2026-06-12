@@ -4,34 +4,11 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	type SortingState,
-	useReactTable,
-} from "@tanstack/react-table";
-import {
-	ArrowUpDown,
-	ChevronLeft,
-	ChevronRight,
-	Search,
-	UserPlus,
-} from "lucide-react";
-import { useState } from "react";
+import { UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
-import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -51,16 +28,9 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
-import {
 	type AdminUser,
 	type AdminUserSession,
+	type AdminUsersSearch,
 	adminUsersSearchSchema,
 	banAdminUser,
 	createAdminUser,
@@ -73,6 +43,7 @@ import {
 	setAdminUserRole,
 	unbanAdminUser,
 } from "#/features/admin-users/admin-users.functions";
+import { AdminUsersDataTable } from "#/features/admin-users/admin-users-data-table";
 
 export const Route = createFileRoute("/_protected/admin/")({
 	validateSearch: adminUsersSearchSchema,
@@ -92,14 +63,9 @@ function RouteComponent() {
 	const { users, total, currentUserId } = Route.useLoaderData();
 
 	const [search, setSearch] = useState(searchParams.q);
-	const [searchField, setSearchField] = useState<"name" | "email">(
-		searchParams.field,
-	);
-	const [roleFilter, setRoleFilter] = useState<"all" | "user" | "admin">(
+	const [roleFilter, setRoleFilter] = useState<AdminUsersSearch["role"]>(
 		searchParams.role,
 	);
-	const [sorting, setSorting] = useState<SortingState>([]);
-	const [pageSize, setPageSize] = useState(10);
 
 	const [banningId, setBanningId] = useState<string | null>(null);
 	const [banReason, setBanReason] = useState("");
@@ -126,6 +92,30 @@ function RouteComponent() {
 	const invalidateAdminUsers = async () => {
 		await router.invalidate();
 	};
+
+	useEffect(() => {
+		setSearch(searchParams.q);
+		setRoleFilter(searchParams.role);
+	}, [searchParams.q, searchParams.role]);
+
+	useEffect(() => {
+		if (search === searchParams.q && roleFilter === searchParams.role) {
+			return;
+		}
+
+		const timeout = window.setTimeout(() => {
+			navigate({
+				to: "/admin",
+				search: {
+					q: search.trim(),
+					role: roleFilter,
+				},
+				replace: true,
+			});
+		}, 300);
+
+		return () => window.clearTimeout(timeout);
+	}, [navigate, roleFilter, search, searchParams.q, searchParams.role]);
 
 	const setRoleMutation = useMutation({
 		mutationFn: (data: { userId: string; role: "user" | "admin" }) =>
@@ -247,17 +237,6 @@ function RouteComponent() {
 		},
 	});
 
-	const fetchUsers = async () => {
-		await navigate({
-			to: "/admin",
-			search: {
-				q: search,
-				field: searchField,
-				role: roleFilter,
-			},
-		});
-	};
-
 	const handleSetRole = (userId: string, role: "user" | "admin") => {
 		if (userId === currentUserId) {
 			toast.error("You cannot change your own role");
@@ -354,174 +333,6 @@ function RouteComponent() {
 		setRevokingAll(false);
 	};
 
-	const columns: ColumnDef<AdminUser>[] = [
-		{
-			accessorKey: "name",
-			header: ({ column }) => (
-				<button
-					type="button"
-					className="inline-flex items-center gap-1 font-medium"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Name
-					<ArrowUpDown className="size-3.5" />
-				</button>
-			),
-			cell: ({ row }) => {
-				const user = row.original;
-				return (
-					<div className="flex items-center gap-2">
-						{user.image ? (
-							<img
-								src={user.image}
-								alt=""
-								className="size-7 rounded-full object-cover"
-							/>
-						) : (
-							<div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-								{user.name.charAt(0).toUpperCase()}
-							</div>
-						)}
-						<span className="font-medium">{user.name}</span>
-					</div>
-				);
-			},
-		},
-		{
-			accessorKey: "email",
-			header: ({ column }) => (
-				<button
-					type="button"
-					className="inline-flex items-center gap-1 font-medium"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Email
-					<ArrowUpDown className="size-3.5" />
-				</button>
-			),
-			cell: ({ row }) => (
-				<span className="text-muted-foreground">{row.original.email}</span>
-			),
-		},
-		{
-			accessorKey: "role",
-			header: ({ column }) => (
-				<button
-					type="button"
-					className="inline-flex items-center gap-1 font-medium"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Role
-					<ArrowUpDown className="size-3.5" />
-				</button>
-			),
-			cell: ({ row }) => {
-				const user = row.original;
-				const isSelf = user.id === currentUserId;
-				return (
-					<Select
-						value={user.role ?? "user"}
-						disabled={isSelf || setRoleMutation.isPending}
-						onValueChange={(role) =>
-							handleSetRole(user.id, role as "user" | "admin")
-						}
-					>
-						<SelectTrigger className="h-8 w-24">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="user">User</SelectItem>
-							<SelectItem value="admin">Admin</SelectItem>
-						</SelectContent>
-					</Select>
-				);
-			},
-		},
-		{
-			accessorKey: "banned",
-			header: "Status",
-			cell: ({ row }) =>
-				row.original.banned ? (
-					<Badge variant="destructive">Banned</Badge>
-				) : (
-					<Badge variant="default">Active</Badge>
-				),
-		},
-		{
-			id: "actions",
-			header: "Actions",
-			cell: ({ row }) => {
-				const user = row.original;
-				const isSelf = user.id === currentUserId;
-				return (
-					<div className="flex flex-wrap gap-1.5">
-						{user.banned ? (
-							<Button
-								variant="outline"
-								size="xs"
-								disabled={isSelf || unbanMutation.isPending}
-								onClick={() => handleUnban(user.id)}
-							>
-								Unban
-							</Button>
-						) : (
-							<Button
-								variant="outline"
-								size="xs"
-								disabled={isSelf}
-								onClick={() => setShowBanDialog(user.id)}
-							>
-								Ban
-							</Button>
-						)}
-						<Button
-							variant="outline"
-							size="xs"
-							onClick={() => handleListSessions(user)}
-						>
-							Sessions
-						</Button>
-						<Button
-							variant="outline"
-							size="xs"
-							disabled={isSelf || impersonateMutation.isPending}
-							onClick={() => handleImpersonate(user.id)}
-						>
-							Impersonate
-						</Button>
-						<Button
-							variant="destructive"
-							size="xs"
-							disabled={isSelf}
-							onClick={() => setShowDeleteDialog(user.id)}
-						>
-							Delete
-						</Button>
-					</div>
-				);
-			},
-		},
-	];
-
-	const table = useReactTable({
-		data: users,
-		columns,
-		state: {
-			sorting,
-		},
-		onSortingChange: setSorting,
-		initialState: {
-			pagination: {
-				pageSize,
-			},
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-	});
-
-	const pageIndex = table.getState().pagination.pageIndex;
-	const pageCount = table.getPageCount();
 	const sessionsLoading = listSessionsMutation.isPending;
 
 	return (
@@ -615,147 +426,24 @@ function RouteComponent() {
 					</Dialog>
 				</div>
 
-				<Card>
-					<CardHeader>
-						<CardTitle>Users</CardTitle>
-						<CardDescription>
-							Manage all registered users. Search, filter, and perform admin
-							actions.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="flex gap-2">
-							<div className="relative flex-1">
-								<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-								<Input
-									placeholder={`Search by ${searchField}...`}
-									value={search}
-									onChange={(event) => setSearch(event.target.value)}
-									className="pl-9"
-								/>
-							</div>
-							<Select
-								value={searchField}
-								onValueChange={(value) =>
-									setSearchField(value as "name" | "email")
-								}
-							>
-								<SelectTrigger className="w-32">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="name">Name</SelectItem>
-									<SelectItem value="email">Email</SelectItem>
-								</SelectContent>
-							</Select>
-							<Select
-								value={roleFilter}
-								onValueChange={(value) =>
-									setRoleFilter(value as "all" | "user" | "admin")
-								}
-							>
-								<SelectTrigger className="w-32">
-									<SelectValue placeholder="Role" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All roles</SelectItem>
-									<SelectItem value="admin">Admin</SelectItem>
-									<SelectItem value="user">User</SelectItem>
-								</SelectContent>
-							</Select>
-							<Button onClick={fetchUsers}>Search</Button>
-						</div>
-
-						{users.length === 0 ? (
-							<p className="py-8 text-center text-sm text-muted-foreground">
-								No users found.
-							</p>
-						) : (
-							<>
-								<div className="overflow-x-auto">
-									<Table>
-										<TableHeader>
-											{table.getHeaderGroups().map((headerGroup) => (
-												<TableRow key={headerGroup.id}>
-													{headerGroup.headers.map((header) => (
-														<TableHead key={header.id}>
-															{header.isPlaceholder
-																? null
-																: flexRender(
-																		header.column.columnDef.header,
-																		header.getContext(),
-																	)}
-														</TableHead>
-													))}
-												</TableRow>
-											))}
-										</TableHeader>
-										<TableBody>
-											{table.getRowModel().rows.map((row) => (
-												<TableRow key={row.id}>
-													{row.getVisibleCells().map((cell) => (
-														<TableCell key={cell.id}>
-															{flexRender(
-																cell.column.columnDef.cell,
-																cell.getContext(),
-															)}
-														</TableCell>
-													))}
-												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-								</div>
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-2">
-										<span className="text-sm text-muted-foreground">
-											Rows per page
-										</span>
-										<Select
-											value={String(pageSize)}
-											onValueChange={(value) => {
-												setPageSize(Number(value));
-												table.setPageSize(Number(value));
-											}}
-										>
-											<SelectTrigger className="h-8 w-16">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="10">10</SelectItem>
-												<SelectItem value="25">25</SelectItem>
-												<SelectItem value="50">50</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="flex items-center gap-2">
-										<span className="text-sm text-muted-foreground">
-											Page {pageIndex + 1} of {pageCount}
-										</span>
-										<div className="flex gap-1">
-											<Button
-												variant="outline"
-												size="xs"
-												onClick={() => table.previousPage()}
-												disabled={!table.getCanPreviousPage()}
-											>
-												<ChevronLeft className="size-4" />
-											</Button>
-											<Button
-												variant="outline"
-												size="xs"
-												onClick={() => table.nextPage()}
-												disabled={!table.getCanNextPage()}
-											>
-												<ChevronRight className="size-4" />
-											</Button>
-										</div>
-									</div>
-								</div>
-							</>
-						)}
-					</CardContent>
-				</Card>
+				<AdminUsersDataTable
+					users={users}
+					total={total}
+					currentUserId={currentUserId}
+					search={search}
+					roleFilter={roleFilter}
+					setRolePending={setRoleMutation.isPending}
+					unbanPending={unbanMutation.isPending}
+					impersonatePending={impersonateMutation.isPending}
+					onSearchChange={setSearch}
+					onRoleFilterChange={setRoleFilter}
+					onSetRole={handleSetRole}
+					onOpenBan={setShowBanDialog}
+					onUnban={handleUnban}
+					onListSessions={handleListSessions}
+					onImpersonate={handleImpersonate}
+					onOpenDelete={setShowDeleteDialog}
+				/>
 
 				<Dialog
 					open={!!sessionsUser}

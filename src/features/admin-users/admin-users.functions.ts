@@ -1,13 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
+import { and, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
+import db from "#/db";
+import { user as userTable } from "#/db/schema";
 import { auth } from "#/lib/auth";
 
 const adminRoleSchema = z.enum(["user", "admin"]);
 
 export const adminUsersSearchSchema = z.object({
 	q: z.string().catch(""),
-	field: z.enum(["name", "email"]).catch("name"),
 	role: z.enum(["all", "user", "admin"]).catch("all"),
 });
 
@@ -87,23 +89,49 @@ export const listAdminUsers = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<AdminUsersResult> => {
 		const headers = getRequestHeaders();
 		const session = await requireAdmin(headers);
+		const filters: SQL[] = [];
+		const query = data.q.trim();
 
-		const result = await auth.api.listUsers({
-			headers,
-			query: {
-				searchValue: data.q || undefined,
-				searchField: data.q ? data.field : undefined,
-				searchOperator: "contains",
-				filterField: data.role !== "all" ? "role" : undefined,
-				filterValue: data.role !== "all" ? data.role : undefined,
-				filterOperator: data.role !== "all" ? "eq" : undefined,
-				limit: 100,
-			},
-		});
+		if (query) {
+			const searchFilter = or(
+				ilike(userTable.name, `%${query}%`),
+				ilike(userTable.email, `%${query}%`),
+			);
+
+			if (searchFilter) {
+				filters.push(searchFilter);
+			}
+		}
+
+		if (data.role !== "all") {
+			filters.push(eq(userTable.role, data.role));
+		}
+
+		const whereClause = filters.length > 0 ? and(...filters) : undefined;
+		const [users, totalRows] = await Promise.all([
+			db
+				.select({
+					id: userTable.id,
+					name: userTable.name,
+					email: userTable.email,
+					role: userTable.role,
+					banned: userTable.banned,
+					banReason: userTable.banReason,
+					banExpires: userTable.banExpires,
+					createdAt: userTable.createdAt,
+					emailVerified: userTable.emailVerified,
+					image: userTable.image,
+				})
+				.from(userTable)
+				.where(whereClause)
+				.orderBy(desc(userTable.createdAt))
+				.limit(100),
+			db.select({ value: count() }).from(userTable).where(whereClause),
+		]);
 
 		return {
-			users: result.users.map((user) => mapAdminUser(user as AdminUser)),
-			total: result.total,
+			users: users.map((user) => mapAdminUser(user)),
+			total: totalRows[0]?.value ?? 0,
 			currentUserId: session.user.id,
 		};
 	});
