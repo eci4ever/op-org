@@ -5,6 +5,11 @@ import { z } from "zod";
 import db from "#/db";
 import { member, organization } from "#/db/schema";
 import { auth } from "#/lib/auth";
+import {
+	requireAdmin,
+	requireOrgAccess,
+	requireSession,
+} from "#/lib/server/auth-guards";
 
 const assignableOrganizationRoleSchema = z.enum(["admin", "member"]);
 
@@ -51,45 +56,6 @@ export type OrganizationManagementData = {
 	currentMemberRole: string;
 	isPlatformAdmin: boolean;
 };
-
-async function requireSession(headers: Headers) {
-	const session = await auth.api.getSession({ headers });
-
-	if (!session) {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
-}
-
-async function requireAdmin(headers: Headers) {
-	const session = await requireSession(headers);
-
-	if (session.user.role !== "admin") {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
-}
-
-async function requireOrgAccess(headers: Headers, organizationId: string) {
-	const session = await requireSession(headers);
-
-	if (session.user.role === "admin") {
-		return { session, member: null };
-	}
-
-	const memberRecord = await db.query.member.findFirst({
-		where: (m, { and, eq }) =>
-			and(eq(m.organizationId, organizationId), eq(m.userId, session.user.id)),
-	});
-
-	if (!memberRecord) {
-		throw new Error("Unauthorized");
-	}
-
-	return { session, member: memberRecord };
-}
 
 export const listAllOrganizations = createServerFn({ method: "GET" }).handler(
 	async (): Promise<OrgWithMeta[]> => {

@@ -3,6 +3,11 @@ import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
 import db from "#/db";
 import { auth } from "#/lib/auth";
+import {
+	ensureOrganizationAccess,
+	requireAdmin,
+	requireSession,
+} from "#/lib/server/auth-guards";
 
 export type ShellUser = {
 	id: string;
@@ -26,59 +31,6 @@ export type ProtectedShellData = {
 	activeOrganization: ShellOrganization | null;
 	organizations: ShellOrganization[];
 };
-
-async function requireSession(headers: Headers) {
-	const session = await auth.api.getSession({ headers });
-
-	if (!session) {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
-}
-
-async function requireAdmin(headers: Headers) {
-	const session = await requireSession(headers);
-
-	if (session.user.role !== "admin") {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
-}
-
-async function ensureOrganizationAccess(
-	headers: Headers,
-	organizationId: string,
-) {
-	const session = await requireSession(headers);
-
-	if (session.user.role === "admin") {
-		const org = await db.query.organization.findFirst({
-			where: (organization, { eq }) => eq(organization.id, organizationId),
-		});
-
-		if (!org) {
-			throw new Error("Organization not found");
-		}
-
-		return session;
-	}
-
-	const membership = await db.query.member.findFirst({
-		where: (member, { and, eq }) =>
-			and(
-				eq(member.organizationId, organizationId),
-				eq(member.userId, session.user.id),
-			),
-	});
-
-	if (!membership) {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
-}
 
 export const getProtectedShellData = createServerFn({ method: "GET" }).handler(
 	async (): Promise<ProtectedShellData> => {

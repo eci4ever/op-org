@@ -4,52 +4,46 @@ import { and, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import db from "#/db";
 import { user as userTable } from "#/db/schema";
+import type {
+	AdminUser,
+	AdminUserSession,
+	AdminUsersResult,
+} from "#/features/admin-users/admin-users.types";
 import { auth } from "#/lib/auth";
+import { requireAdmin } from "#/lib/server/auth-guards";
 
 const adminRoleSchema = z.enum(["user", "admin"]);
 
 export const adminUsersSearchSchema = z.object({
 	q: z.string().catch(""),
 	role: z.enum(["all", "user", "admin"]).catch("all"),
+	page: z.coerce.number().int().min(1).catch(1),
+	pageSize: z.coerce.number().int().min(1).max(100).catch(10),
 });
 
 const userIdSchema = z.object({
 	userId: z.string().min(1),
 });
 
-export type AdminUsersSearch = z.infer<typeof adminUsersSearchSchema>;
-
-export type AdminUser = {
-	id: string;
-	name: string;
-	email: string;
-	role: string | null;
-	banned: boolean | null;
-	banReason: string | null;
-	banExpires: Date | null;
-	createdAt: Date;
-	emailVerified: boolean | null;
-	image: string | null;
+type AdminUserRow = Omit<AdminUser, "banExpires" | "createdAt"> & {
+	banExpires: Date | string | null;
+	createdAt: Date | string;
 };
 
-export type AdminUserSession = {
-	id: string;
-	token: string;
-	userId: string;
-	expiresAt: Date;
-	createdAt: Date;
-	ipAddress?: string | null;
-	userAgent?: string | null;
-	impersonatedBy?: string | null;
+type AdminUserSessionRow = Omit<AdminUserSession, "expiresAt" | "createdAt"> & {
+	expiresAt: Date | string;
+	createdAt: Date | string;
 };
 
-export type AdminUsersResult = {
-	users: AdminUser[];
-	total: number;
-	currentUserId: string;
-};
+function toIsoString(value: Date | string): string {
+	return value instanceof Date ? value.toISOString() : value;
+}
 
-function mapAdminUser(user: AdminUser): AdminUser {
+function toNullableIsoString(value: Date | string | null): string | null {
+	return value ? toIsoString(value) : null;
+}
+
+function mapAdminUser(user: AdminUserRow): AdminUser {
 	return {
 		id: user.id,
 		name: user.name,
@@ -57,10 +51,23 @@ function mapAdminUser(user: AdminUser): AdminUser {
 		role: user.role,
 		banned: user.banned,
 		banReason: user.banReason,
-		banExpires: user.banExpires,
-		createdAt: user.createdAt,
+		banExpires: toNullableIsoString(user.banExpires),
+		createdAt: toIsoString(user.createdAt),
 		emailVerified: user.emailVerified,
 		image: user.image,
+	};
+}
+
+function mapAdminUserSession(session: AdminUserSessionRow): AdminUserSession {
+	return {
+		id: session.id,
+		token: session.token,
+		userId: session.userId,
+		expiresAt: toIsoString(session.expiresAt),
+		createdAt: toIsoString(session.createdAt),
+		ipAddress: session.ipAddress ?? null,
+		userAgent: session.userAgent ?? null,
+		impersonatedBy: session.impersonatedBy ?? null,
 	};
 }
 
@@ -72,16 +79,6 @@ function assertNotSelf(
 	if (targetUserId === currentUserId) {
 		throw new Error(message);
 	}
-}
-
-async function requireAdmin(headers: Headers) {
-	const session = await auth.api.getSession({ headers });
-
-	if (!session || session.user.role !== "admin") {
-		throw new Error("Unauthorized");
-	}
-
-	return session;
 }
 
 export const listAdminUsers = createServerFn({ method: "GET" })
@@ -108,30 +105,39 @@ export const listAdminUsers = createServerFn({ method: "GET" })
 		}
 
 		const whereClause = filters.length > 0 ? and(...filters) : undefined;
-		const [users, totalRows] = await Promise.all([
-			db
-				.select({
-					id: userTable.id,
-					name: userTable.name,
-					email: userTable.email,
-					role: userTable.role,
-					banned: userTable.banned,
-					banReason: userTable.banReason,
-					banExpires: userTable.banExpires,
-					createdAt: userTable.createdAt,
-					emailVerified: userTable.emailVerified,
-					image: userTable.image,
-				})
-				.from(userTable)
-				.where(whereClause)
-				.orderBy(desc(userTable.createdAt))
-				.limit(100),
-			db.select({ value: count() }).from(userTable).where(whereClause),
-		]);
+		const totalRows = await db
+			.select({ value: count() })
+			.from(userTable)
+			.where(whereClause);
+		const total = totalRows[0]?.value ?? 0;
+		const totalPages = Math.ceil(total / data.pageSize);
+		const page = totalPages === 0 ? 1 : Math.min(data.page, totalPages);
+		const offset = (page - 1) * data.pageSize;
+		const users = await db
+			.select({
+				id: userTable.id,
+				name: userTable.name,
+				email: userTable.email,
+				role: userTable.role,
+				banned: userTable.banned,
+				banReason: userTable.banReason,
+				banExpires: userTable.banExpires,
+				createdAt: userTable.createdAt,
+				emailVerified: userTable.emailVerified,
+				image: userTable.image,
+			})
+			.from(userTable)
+			.where(whereClause)
+			.orderBy(desc(userTable.createdAt))
+			.limit(data.pageSize)
+			.offset(offset);
 
 		return {
 			users: users.map((user) => mapAdminUser(user)),
-			total: totalRows[0]?.value ?? 0,
+			total,
+			page,
+			pageSize: data.pageSize,
+			totalPages,
 			currentUserId: session.user.id,
 		};
 	});
@@ -262,7 +268,9 @@ export const listAdminUserSessions = createServerFn({ method: "GET" })
 			body: data,
 		});
 
-		return (result.sessions ?? []) as AdminUserSession[];
+		return (result.sessions ?? []).map((session) =>
+			mapAdminUserSession(session as AdminUserSessionRow),
+		);
 	});
 
 export const revokeAdminUserSession = createServerFn({ method: "POST" })

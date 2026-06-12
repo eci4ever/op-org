@@ -2,8 +2,8 @@ import {
 	type ColumnDef,
 	flexRender,
 	getCoreRowModel,
-	getPaginationRowModel,
 	getSortedRowModel,
+	type PaginationState,
 	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
@@ -37,7 +37,7 @@ import {
 import type {
 	AdminUser,
 	AdminUsersSearch,
-} from "#/features/admin-users/admin-users.functions";
+} from "#/features/admin-users/admin-users.types";
 
 type RoleFilter = AdminUsersSearch["role"];
 
@@ -47,11 +47,16 @@ type AdminUsersDataTableProps = {
 	currentUserId: string;
 	search: string;
 	roleFilter: RoleFilter;
+	page: number;
+	pageSize: number;
+	totalPages: number;
 	setRolePending: boolean;
 	unbanPending: boolean;
 	impersonatePending: boolean;
 	onSearchChange: (value: string) => void;
 	onRoleFilterChange: (value: RoleFilter) => void;
+	onPageChange: (page: number) => void;
+	onPageSizeChange: (pageSize: number) => void;
 	onSetRole: (userId: string, role: "user" | "admin") => void;
 	onOpenBan: (userId: string) => void;
 	onUnban: (userId: string) => void;
@@ -66,11 +71,16 @@ export function AdminUsersDataTable({
 	currentUserId,
 	search,
 	roleFilter,
+	page,
+	pageSize,
+	totalPages,
 	setRolePending,
 	unbanPending,
 	impersonatePending,
 	onSearchChange,
 	onRoleFilterChange,
+	onPageChange,
+	onPageSizeChange,
 	onSetRole,
 	onOpenBan,
 	onUnban,
@@ -79,7 +89,10 @@ export function AdminUsersDataTable({
 	onOpenDelete,
 }: AdminUsersDataTableProps) {
 	const [sorting, setSorting] = useState<SortingState>([]);
-	const [pageSize, setPageSize] = useState(10);
+	const pagination: PaginationState = {
+		pageIndex: page - 1,
+		pageSize,
+	};
 
 	const columns = useMemo<ColumnDef<AdminUser>[]>(
 		() => [
@@ -248,21 +261,28 @@ export function AdminUsersDataTable({
 		data: users,
 		columns,
 		state: {
+			pagination,
 			sorting,
 		},
-		onSortingChange: setSorting,
-		initialState: {
-			pagination: {
-				pageSize,
-			},
+		manualPagination: true,
+		pageCount: totalPages,
+		onPaginationChange: (updater) => {
+			const next =
+				typeof updater === "function" ? updater(pagination) : updater;
+
+			if (next.pageSize !== pageSize) {
+				onPageSizeChange(next.pageSize);
+				return;
+			}
+
+			onPageChange(next.pageIndex + 1);
 		},
+		onSortingChange: setSorting,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
 	});
 
-	const pageIndex = table.getState().pagination.pageIndex;
-	const pageCount = table.getPageCount();
+	const currentPage = totalPages === 0 ? 0 : page;
 
 	return (
 		<Card>
@@ -345,8 +365,7 @@ export function AdminUsersDataTable({
 									value={String(pageSize)}
 									onValueChange={(value) => {
 										const nextPageSize = Number(value);
-										setPageSize(nextPageSize);
-										table.setPageSize(nextPageSize);
+										onPageSizeChange(nextPageSize);
 									}}
 								>
 									<SelectTrigger className="h-8 w-16">
@@ -361,7 +380,7 @@ export function AdminUsersDataTable({
 							</div>
 							<div className="flex items-center gap-2">
 								<span className="text-sm text-muted-foreground">
-									Page {pageIndex + 1} of {pageCount}
+									Page {currentPage} of {totalPages}
 								</span>
 								<span className="text-sm text-muted-foreground">
 									{total} total
