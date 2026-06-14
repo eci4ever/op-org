@@ -102,7 +102,7 @@ function RouteComponent() {
 									Trust this device for 30 days
 								</label>
 							)}
-							{error && <p className="text-sm text-red-500">{error}</p>}
+							{error && <p className="text-sm text-destructive">{error}</p>}
 							<Button
 								type="submit"
 								disabled={loading || !code}

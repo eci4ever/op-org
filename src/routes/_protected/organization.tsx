@@ -176,7 +176,7 @@ function OverviewTab({
 							</Select>
 						</div>
 						<Button type="submit" disabled={inviting || !inviteEmail.trim()}>
-							<UserPlus className="size-4" />
+							<UserPlus data-icon="inline-start" />
 							{inviting ? "Sending..." : "Invite"}
 						</Button>
 					</form>
@@ -578,7 +578,7 @@ function SettingsTab({
 					</CardHeader>
 					<CardContent>
 						<Button variant="destructive" onClick={() => setLeaveOpen(true)}>
-							<LogOut className="size-4" />
+							<LogOut data-icon="inline-start" />
 							Leave organization
 						</Button>
 					</CardContent>
@@ -598,7 +598,7 @@ function SettingsTab({
 					</CardHeader>
 					<CardContent>
 						<Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-							<Trash2 className="size-4" />
+							<Trash2 data-icon="inline-start" />
 							Delete organization
 						</Button>
 					</CardContent>

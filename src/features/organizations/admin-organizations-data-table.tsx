@@ -161,7 +161,7 @@ export function AdminOrganizationsDataTable({
 						className="text-destructive"
 						onClick={() => onDelete(row.original)}
 					>
-						<Trash2 className="size-3.5" />
+						<Trash2 />
 					</Button>
 				),
 			},
@@ -225,13 +225,13 @@ export function AdminOrganizationsDataTable({
 							/>
 						</div>
 						<Button onClick={onCreate}>
-							<Plus className="size-4" />
+							<Plus data-icon="inline-start" />
 							Create
 						</Button>
 					</div>
 				</div>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			<CardContent className="flex flex-col gap-4">
 				<Table>
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
@@ -313,7 +313,7 @@ export function AdminOrganizationsDataTable({
 								onClick={() => table.previousPage()}
 								disabled={!table.getCanPreviousPage()}
 							>
-								<ChevronLeft className="size-4" />
+								<ChevronLeft />
 							</Button>
 							<Button
 								variant="outline"
@@ -321,7 +321,7 @@ export function AdminOrganizationsDataTable({
 								onClick={() => table.nextPage()}
 								disabled={!table.getCanNextPage()}
 							>
-								<ChevronRight className="size-4" />
+								<ChevronRight />
 							</Button>
 						</div>
 					</div>

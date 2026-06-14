@@ -165,7 +165,7 @@ export function LoginForm({
 									onChange={(e) => setPassword(e.target.value)}
 								/>
 							</Field>
-							{error && <p className="text-sm text-red-500">{error}</p>}
+							{error && <p className="text-sm text-destructive">{error}</p>}
 							{emailNotVerified && !resendSent && (
 								<Button
 									variant="outline"
@@ -182,12 +182,12 @@ export function LoginForm({
 								</Button>
 							)}
 							{resendSent && (
-								<p className="text-sm text-green-600 text-center">
+								<p className="text-sm text-center text-muted-foreground">
 									Verification email sent. Check your inbox.{" "}
 									{cooldown === 0 && (
 										<button
 											type="button"
-											className="underline underline-offset-2 hover:text-green-700"
+											className="underline underline-offset-2 hover:text-foreground"
 											disabled={resendLoading}
 											onClick={handleResendVerification}
 										>

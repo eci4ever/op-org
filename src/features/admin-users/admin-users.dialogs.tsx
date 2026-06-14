@@ -1,5 +1,6 @@
 import { UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Dialog,
@@ -62,7 +63,7 @@ export function CreateAdminUserDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogTrigger asChild>
 				<Button>
-					<UserPlus className="size-4" />
+					<UserPlus data-icon="inline-start" />
 					Create User
 				</Button>
 			</DialogTrigger>
@@ -175,13 +176,13 @@ export function AdminUserSessionsDialog({
 						No active sessions.
 					</p>
 				) : (
-					<div className="space-y-3">
+					<div className="flex flex-col gap-3">
 						{sessions.map((session) => (
 							<div
 								key={session.id}
 								className="flex items-center justify-between rounded-lg border p-3"
 							>
-								<div className="space-y-1">
+								<div className="flex flex-col gap-1">
 									<p className="text-sm font-medium">
 										{session.userAgent ?? "Unknown device"}
 									</p>
@@ -190,9 +191,7 @@ export function AdminUserSessionsDialog({
 										{session.ipAddress ? ` · ${session.ipAddress}` : ""}
 									</p>
 									{session.impersonatedBy && (
-										<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-											Impersonated
-										</span>
+										<Badge variant="secondary">Impersonated</Badge>
 									)}
 								</div>
 								<Button

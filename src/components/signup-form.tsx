@@ -135,7 +135,7 @@ export function SignupForm({
 							/>
 							<FieldDescription>Please confirm your password.</FieldDescription>
 						</Field>
-						{error && <p className="text-sm text-red-500">{error}</p>}
+						{error && <p className="text-sm text-destructive">{error}</p>}
 						<FieldGroup>
 							<Field>
 								<Button type="submit" disabled={loading}>

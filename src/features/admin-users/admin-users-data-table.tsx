@@ -293,7 +293,7 @@ export function AdminUsersDataTable({
 					actions.
 				</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			<CardContent className="flex flex-col gap-4">
 				<div className="flex gap-2">
 					<div className="relative flex-1">
 						<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -392,7 +392,7 @@ export function AdminUsersDataTable({
 										onClick={() => table.previousPage()}
 										disabled={!table.getCanPreviousPage()}
 									>
-										<ChevronLeft className="size-4" />
+										<ChevronLeft />
 									</Button>
 									<Button
 										variant="outline"
@@ -400,7 +400,7 @@ export function AdminUsersDataTable({
 										onClick={() => table.nextPage()}
 										disabled={!table.getCanNextPage()}
 									>
-										<ChevronRight className="size-4" />
+										<ChevronRight />
 									</Button>
 								</div>
 							</div>

@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -356,7 +357,7 @@ function RouteComponent() {
 				{ label: "Account" },
 			]}
 		>
-			<div className="max-w-2xl space-y-8">
+			<div className="max-w-2xl flex flex-col gap-8">
 				<Card>
 					<CardHeader>
 						<CardTitle>Profile</CardTitle>
@@ -403,7 +404,7 @@ function RouteComponent() {
 							Manage your email verification status
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="flex flex-col gap-4">
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm font-medium">Email</p>
@@ -411,11 +412,9 @@ function RouteComponent() {
 									{session?.user.email}
 								</p>
 							</div>
-							<span
-								className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${session?.user.emailVerified ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
-							>
+							<Badge variant={session?.user.emailVerified ? "default" : "secondary"}>
 								{session?.user.emailVerified ? "Verified" : "Not verified"}
-							</span>
+							</Badge>
 						</div>
 						{!session?.user.emailVerified && (
 							<Button
@@ -481,7 +480,7 @@ function RouteComponent() {
 							recognize.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="flex flex-col gap-4">
 						{sessionsLoading ? (
 							<p className="text-sm text-muted-foreground">
 								Loading sessions...
@@ -491,7 +490,7 @@ function RouteComponent() {
 								No active sessions found.
 							</p>
 						) : (
-							<div className="space-y-3">
+							<div className="flex flex-col gap-3">
 								{sessions.map((s) => {
 									const isCurrent = s.token === currentSessionToken;
 									return (
@@ -499,7 +498,7 @@ function RouteComponent() {
 											key={s.token}
 											className="flex items-center justify-between rounded-lg border p-3"
 										>
-											<div className="space-y-1">
+											<div className="flex flex-col gap-1">
 												<p className="text-sm font-medium">
 													{s.userAgent ?? "Unknown device"}
 												</p>
@@ -508,9 +507,7 @@ function RouteComponent() {
 													{s.ipAddress ? ` · ${s.ipAddress}` : ""}
 												</p>
 												{isCurrent && (
-													<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-														Current
-													</span>
+													<Badge>Current</Badge>
 												)}
 											</div>
 											<Button
@@ -547,9 +544,9 @@ function RouteComponent() {
 							authenticator app.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="flex flex-col gap-4">
 						{twoFactorError && (
-							<p className="text-sm text-red-500">{twoFactorError}</p>
+							<p className="text-sm text-destructive">{twoFactorError}</p>
 						)}
 
 						{twoFactorEnabled ? (
@@ -560,7 +557,7 @@ function RouteComponent() {
 										<p className="text-sm text-green-600">Enabled</p>
 									</div>
 									{showDisableConfirm ? (
-										<div className="space-y-2">
+										<div className="flex flex-col gap-2">
 											<Input
 												type="password"
 												placeholder="Enter your password"
@@ -612,12 +609,12 @@ function RouteComponent() {
 										: "Regenerate backup codes"}
 								</Button>
 								{twoFactorStep === "codes" && backupCodes.length > 0 && (
-									<div className="rounded-lg border bg-yellow-50 p-3">
-										<p className="mb-2 text-sm font-medium text-yellow-800">
+									<div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
+										<p className="text-sm font-medium text-muted-foreground">
 											Save these backup codes in a secure place. You won't be
 											able to see them again.
 										</p>
-										<div className="space-y-1 font-mono text-sm">
+										<div className="flex flex-col gap-1 font-mono text-sm">
 											{backupCodes.map((code) => (
 												<p key={code}>{code}</p>
 											))}
@@ -626,7 +623,7 @@ function RouteComponent() {
 								)}
 							</>
 						) : twoFactorStep === "qr" ? (
-							<div className="space-y-4">
+							<div className="flex flex-col gap-4">
 								<p className="text-sm text-muted-foreground">
 									Scan this QR code with your authenticator app (e.g. Google
 									Authenticator, Authy).
@@ -672,13 +669,13 @@ function RouteComponent() {
 								</div>
 							</div>
 						) : twoFactorStep === "codes" && backupCodes.length > 0 ? (
-							<div className="space-y-4">
-								<div className="rounded-lg border bg-yellow-50 p-3">
-									<p className="mb-2 text-sm font-medium text-yellow-800">
+							<div className="flex flex-col gap-4">
+								<div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
+									<p className="text-sm font-medium text-muted-foreground">
 										Save these backup codes in a secure place. You won't be able
 										to see them again.
 									</p>
-									<div className="space-y-1 font-mono text-sm">
+									<div className="flex flex-col gap-1 font-mono text-sm">
 										{backupCodes.map((code) => (
 											<p key={code}>{code}</p>
 										))}
@@ -687,7 +684,7 @@ function RouteComponent() {
 								<Button onClick={() => setTwoFactorStep("idle")}>Done</Button>
 							</div>
 						) : twoFactorStep === "password" ? (
-							<div className="space-y-4">
+							<div className="flex flex-col gap-4">
 								<Field>
 									<FieldLabel htmlFor="setup-password">
 										Enter your password to continue
@@ -738,15 +735,15 @@ function RouteComponent() {
 							password.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="flex flex-col gap-4">
 						{passkeys && passkeys.length > 0 && (
-							<div className="space-y-2">
+							<div className="flex flex-col gap-2">
 								{passkeys.map((pk) => (
 									<div
 										key={pk.id}
 										className="flex items-center justify-between rounded-lg border p-3"
 									>
-										<div className="space-y-1">
+										<div className="flex flex-col gap-1">
 											<p className="text-sm font-medium">
 												{pk.name ?? "Unnamed passkey"}
 											</p>
@@ -794,15 +791,15 @@ function RouteComponent() {
 					</CardContent>
 				</Card>
 
-				<Card className="border-red-200">
+				<Card className="border-destructive/50">
 					<CardHeader>
-						<CardTitle className="text-red-600">Danger Zone</CardTitle>
+						<CardTitle className="text-destructive">Danger Zone</CardTitle>
 						<CardDescription>
 							Once you delete your account, there is no going back. All your
 							data will be permanently removed.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="flex flex-col gap-4">
 						{!showDeleteConfirm ? (
 							<Button
 								variant="destructive"
@@ -811,11 +808,11 @@ function RouteComponent() {
 								Delete Account
 							</Button>
 						) : (
-							<div className="space-y-4 rounded-lg border border-red-200 bg-red-50 p-4">
-								<p className="text-sm font-medium text-red-800">
+							<div className="flex flex-col gap-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+								<p className="text-sm font-medium text-destructive">
 									Are you absolutely sure?
 								</p>
-								<p className="text-sm text-red-600">
+								<p className="text-sm text-destructive/80">
 									This action cannot be undone. This will permanently delete
 									your account and remove all associated data.
 								</p>

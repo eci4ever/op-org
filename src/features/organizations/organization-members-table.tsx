@@ -1,4 +1,5 @@
 import { UserMinus } from "lucide-react";
+import { cn } from "#/lib/utils";
 import { Avatar, AvatarFallback } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -182,7 +183,7 @@ export function OrganizationMembersTable({
 													disabled={removing === member.id}
 													onClick={() => onRemove(member.id)}
 												>
-													<UserMinus className="size-4" />
+													<UserMinus />
 												</Button>
 											)}
 										</TableCell>
@@ -207,9 +208,7 @@ export function OrganizationMembersTable({
 						{transferableMembers.map((member) => (
 							<label
 								key={member.id}
-								className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted ${
-									transferTarget === member.id ? "border-primary bg-muted" : ""
-								}`}
+								className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted", transferTarget === member.id && "border-primary bg-muted")}
 							>
 								<input
 									type="radio"

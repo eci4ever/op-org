@@ -112,7 +112,7 @@ function RouteComponent() {
 									onChange={(e) => setConfirmPassword(e.target.value)}
 								/>
 							</Field>
-							{error && <p className="text-sm text-red-500">{error}</p>}
+							{error && <p className="text-sm text-destructive">{error}</p>}
 							<Field>
 								<Button type="submit" disabled={loading} className="w-full">
 									{loading ? "Resetting..." : "Reset password"}

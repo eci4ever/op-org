@@ -17,9 +17,9 @@ function RouteComponent() {
 	if (session && redirect) {
 		return (
 			<div className="flex min-h-svh items-center justify-center p-8">
-				<div className="max-w-md space-y-6 text-center">
+				<div className="max-w-md flex flex-col gap-6 text-center">
 					<div className="flex justify-center">
-						<div className="flex size-16 items-center justify-center rounded-full bg-green-100">
+						<div className="flex size-16 items-center justify-center rounded-full bg-muted">
 							<span className="text-3xl">✓</span>
 						</div>
 					</div>
@@ -39,9 +39,9 @@ function RouteComponent() {
 
 	return (
 		<div className="flex min-h-svh items-center justify-center p-8">
-			<div className="max-w-md space-y-6 text-center">
+			<div className="max-w-md flex flex-col gap-6 text-center">
 				<div className="flex justify-center">
-					<div className="flex size-16 items-center justify-center rounded-full bg-green-100">
+					<div className="flex size-16 items-center justify-center rounded-full bg-muted">
 						<span className="text-3xl">✓</span>
 					</div>
 				</div>

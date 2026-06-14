@@ -63,7 +63,7 @@ export function TeamSwitcher({
 						className="rounded-lg"
 					>
 						<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white">
-							<BriefcaseBusiness className="size-4" />
+							<BriefcaseBusiness />
 						</div>
 						<div className="grid flex-1 text-left text-sm leading-tight">
 							<span className="truncate font-medium">
@@ -73,7 +73,7 @@ export function TeamSwitcher({
 								{currentOrg ? "Enterprise" : "Select a workspace"}
 							</span>
 						</div>
-						<ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
+						<ChevronsUpDown className="ml-auto shrink-0 text-muted-foreground" />
 					</SidebarMenuButton>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
@@ -95,7 +95,7 @@ export function TeamSwitcher({
 								className="gap-2 p-2"
 							>
 								<div className="flex size-6 items-center justify-center rounded-md border">
-									<BriefcaseBusiness className="size-3.5 shrink-0" />
+									<BriefcaseBusiness className="shrink-0" />
 								</div>
 								{org.name}
 							</DropdownMenuItem>
@@ -114,7 +114,7 @@ export function TeamSwitcher({
 							onClick={() => setCreateOpen(true)}
 							className="gap-2 p-2"
 						>
-							<Plus className="size-3.5" />
+							<Plus />
 							Create organization
 						</DropdownMenuItem>
 					)}
@@ -123,7 +123,7 @@ export function TeamSwitcher({
 							onClick={() => (window.location.href = "/organization")}
 							className="gap-2 p-2"
 						>
-							<Settings className="size-3.5" />
+							<Settings />
 							Organization settings
 						</DropdownMenuItem>
 					)}

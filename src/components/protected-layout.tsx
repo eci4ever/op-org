@@ -95,18 +95,17 @@ export function ProtectedLayout({
 					</div>
 				</header>
 				{shellData.isImpersonating && (
-					<div className="mx-4 mt-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
-						<div className="flex items-center gap-2 text-sm font-medium text-amber-800">
-							<span className="flex size-6 items-center justify-center rounded-full bg-amber-200 text-xs font-bold">
+					<div className="mx-4 mt-2 flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5">
+						<div className="flex items-center gap-2 text-sm font-medium text-destructive">
+							<span className="flex size-6 items-center justify-center rounded-full bg-destructive/20 text-xs font-bold">
 								!
 							</span>
 							You are impersonating{" "}
 							<span className="font-semibold">{shellData.user.name}</span>
 						</div>
 						<Button
-							variant="outline"
+							variant="destructive"
 							size="xs"
-							className="border-amber-300 text-amber-800 hover:bg-amber-100"
 							disabled={stopImpersonatingMutation.isPending}
 							onClick={handleStopImpersonating}
 						>

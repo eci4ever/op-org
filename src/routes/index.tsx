@@ -15,7 +15,7 @@ export const Route = createFileRoute("/")({
 function Home() {
 	return (
 		<div className="flex min-h-svh items-center justify-center p-8">
-			<div className="max-w-md space-y-6 text-center">
+			<div className="max-w-md flex flex-col gap-6 text-center">
 				<h1 className="text-5xl font-bold tracking-tight">op-org</h1>
 				<p className="text-lg text-muted-foreground">
 					Manage your organizations, teams, and projects.

@@ -1,3 +1,4 @@
+import { cn } from "#/lib/utils";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -85,7 +86,7 @@ function RouteComponent() {
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
 						<div className="flex justify-center">
-							<div className="flex size-16 items-center justify-center rounded-full bg-green-100">
+							<div className="flex size-16 items-center justify-center rounded-full bg-muted">
 								<span className="text-3xl">✓</span>
 							</div>
 						</div>
@@ -126,8 +127,8 @@ function RouteComponent() {
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
 						<div className="flex justify-center">
-							<div className="flex size-16 items-center justify-center rounded-full bg-red-100">
-								<span className="text-3xl text-red-600">!</span>
+							<div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
+								<span className="text-3xl text-destructive">!</span>
 							</div>
 						</div>
 						<CardTitle>Unable to accept invitation</CardTitle>
@@ -149,8 +150,8 @@ function RouteComponent() {
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
 						<div className="flex justify-center">
-							<div className="flex size-16 items-center justify-center rounded-full bg-amber-100">
-								<span className="text-3xl text-amber-600">!</span>
+							<div className="flex size-16 items-center justify-center rounded-full bg-muted">
+								<span className="text-3xl text-muted-foreground">!</span>
 							</div>
 						</div>
 						<CardTitle>Email mismatch</CardTitle>
@@ -209,7 +210,7 @@ function RouteComponent() {
 				<Card>
 					<CardHeader className="text-center">
 						<div className="flex justify-center">
-							<div className="flex size-16 items-center justify-center rounded-full bg-blue-100">
+							<div className="flex size-16 items-center justify-center rounded-full bg-muted">
 								<span className="text-3xl">✉</span>
 							</div>
 						</div>
