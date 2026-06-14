@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedLayout } from "#/components/protected-layout";
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -558,12 +559,16 @@ function RouteComponent() {
 									</div>
 									{showDisableConfirm ? (
 										<div className="flex flex-col gap-2">
-											<Input
-												type="password"
-												placeholder="Enter your password"
-												value={disablePassword}
-												onChange={(e) => setDisablePassword(e.target.value)}
-											/>
+											<Field>
+												<FieldLabel htmlFor="disable-password">Enter your password</FieldLabel>
+												<Input
+													id="disable-password"
+													type="password"
+													placeholder="Enter your password"
+													value={disablePassword}
+													onChange={(e) => setDisablePassword(e.target.value)}
+												/>
+											</Field>
 											<div className="flex gap-2">
 												<Button
 													variant="outline"
@@ -609,17 +614,18 @@ function RouteComponent() {
 										: "Regenerate backup codes"}
 								</Button>
 								{twoFactorStep === "codes" && backupCodes.length > 0 && (
-									<div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
-										<p className="text-sm font-medium text-muted-foreground">
-											Save these backup codes in a secure place. You won't be
-											able to see them again.
-										</p>
+									<Alert>
+										<AlertTitle>Save these backup codes</AlertTitle>
+										<AlertDescription>
+											Store them in a secure place. You won't be able to see
+											them again.
+										</AlertDescription>
 										<div className="flex flex-col gap-1 font-mono text-sm">
 											{backupCodes.map((code) => (
 												<p key={code}>{code}</p>
 											))}
 										</div>
-									</div>
+									</Alert>
 								)}
 							</>
 						) : twoFactorStep === "qr" ? (
@@ -670,17 +676,18 @@ function RouteComponent() {
 							</div>
 						) : twoFactorStep === "codes" && backupCodes.length > 0 ? (
 							<div className="flex flex-col gap-4">
-								<div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
-									<p className="text-sm font-medium text-muted-foreground">
-										Save these backup codes in a secure place. You won't be able
-										to see them again.
-									</p>
+								<Alert>
+									<AlertTitle>Save these backup codes</AlertTitle>
+									<AlertDescription>
+										Store them in a secure place. You won't be able to see
+										them again.
+									</AlertDescription>
 									<div className="flex flex-col gap-1 font-mono text-sm">
 										{backupCodes.map((code) => (
 											<p key={code}>{code}</p>
 										))}
 									</div>
-								</div>
+								</Alert>
 								<Button onClick={() => setTwoFactorStep("idle")}>Done</Button>
 							</div>
 						) : twoFactorStep === "password" ? (
@@ -769,20 +776,26 @@ function RouteComponent() {
 							</div>
 						)}
 
-						<div className="flex items-center gap-2">
-							<Input
-								placeholder="Passkey name (optional)"
-								value={passkeyName}
-								onChange={(e) => setPasskeyName(e.target.value)}
-								className="flex-1"
-							/>
-							<Button
-								disabled={addingPasskey}
-								onClick={handleAddPasskey}
-							>
-								{addingPasskey ? "Registering..." : "Register passkey"}
-							</Button>
-						</div>
+						<Field className="flex-1">
+							<div className="flex items-center gap-2">
+								<FieldLabel htmlFor="passkey-name" className="sr-only">
+									Passkey name
+								</FieldLabel>
+								<Input
+									id="passkey-name"
+									placeholder="Passkey name (optional)"
+									value={passkeyName}
+									onChange={(e) => setPasskeyName(e.target.value)}
+									className="flex-1"
+								/>
+								<Button
+									disabled={addingPasskey}
+									onClick={handleAddPasskey}
+								>
+									{addingPasskey ? "Registering..." : "Register passkey"}
+								</Button>
+							</div>
+						</Field>
 						{(!passkeys || passkeys.length === 0) && (
 							<p className="text-sm text-muted-foreground">
 								No passkeys registered yet. Add one above.
@@ -808,15 +821,13 @@ function RouteComponent() {
 								Delete Account
 							</Button>
 						) : (
-							<div className="flex flex-col gap-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4">
-								<p className="text-sm font-medium text-destructive">
-									Are you absolutely sure?
-								</p>
-								<p className="text-sm text-destructive/80">
+							<Alert variant="destructive">
+								<AlertTitle>Are you absolutely sure?</AlertTitle>
+								<AlertDescription>
 									This action cannot be undone. This will permanently delete
 									your account and remove all associated data.
-								</p>
-								<FieldGroup>
+								</AlertDescription>
+								<FieldGroup className="mt-3">
 									<Field>
 										<FieldLabel htmlFor="delete-password">
 											Enter your password
@@ -862,7 +873,7 @@ function RouteComponent() {
 										</Button>
 									</div>
 								</FieldGroup>
-							</div>
+							</Alert>
 						)}
 					</CardContent>
 				</Card>

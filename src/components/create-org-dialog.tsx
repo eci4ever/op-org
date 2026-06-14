@@ -10,8 +10,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
-import { Label } from "#/components/ui/label";
 import { createShellOrganization } from "#/features/shell/shell.functions";
 
 export function CreateOrgDialog({
@@ -83,18 +83,18 @@ export function CreateOrgDialog({
 					</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit}>
-					<div className="grid gap-4">
-						<div className="grid gap-2">
-							<Label htmlFor="org-name">Name</Label>
+					<FieldGroup>
+						<Field>
+							<FieldLabel htmlFor="org-name">Name</FieldLabel>
 							<Input
 								id="org-name"
 								placeholder="Acme Inc"
 								value={name}
 								onChange={(e) => handleNameChange(e.target.value)}
 							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="org-slug">Slug</Label>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="org-slug">Slug</FieldLabel>
 							<Input
 								id="org-slug"
 								placeholder="acme-inc"
@@ -104,8 +104,8 @@ export function CreateOrgDialog({
 									setSlug(e.target.value);
 								}}
 							/>
-						</div>
-					</div>
+						</Field>
+					</FieldGroup>
 					<DialogFooter className="mt-6">
 						<Button
 							type="button"

@@ -10,8 +10,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
-import { Label } from "#/components/ui/label";
 import { AdminOrganizationsDataTable } from "#/features/organizations/admin-organizations-data-table";
 import {
 	adminCreateOrganization,
@@ -121,18 +121,18 @@ function RouteComponent() {
 						</DialogDescription>
 					</DialogHeader>
 					<form onSubmit={handleCreate}>
-						<div className="grid gap-4">
-							<div className="grid gap-2">
-								<Label htmlFor="org-name">Name</Label>
+						<FieldGroup>
+							<Field>
+								<FieldLabel htmlFor="org-name">Name</FieldLabel>
 								<Input
 									id="org-name"
 									placeholder="Acme Inc"
 									value={createName}
 									onChange={(e) => handleNameChange(e.target.value)}
 								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="org-slug">Slug</Label>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="org-slug">Slug</FieldLabel>
 								<Input
 									id="org-slug"
 									placeholder="acme-inc"
@@ -142,9 +142,9 @@ function RouteComponent() {
 										setCreateSlug(e.target.value);
 									}}
 								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="owner-email">Owner email</Label>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="owner-email">Owner email</FieldLabel>
 								<Input
 									id="owner-email"
 									type="email"
@@ -152,8 +152,8 @@ function RouteComponent() {
 									value={ownerEmail}
 									onChange={(e) => setOwnerEmail(e.target.value)}
 								/>
-							</div>
-						</div>
+							</Field>
+						</FieldGroup>
 						<DialogFooter className="mt-6">
 							<Button
 								type="button"

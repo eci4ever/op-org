@@ -20,8 +20,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
-import { Label } from "#/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -147,8 +147,8 @@ function OverviewTab({
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleInvite} className="flex items-end gap-3">
-						<div className="flex-1 grid gap-1.5">
-							<Label htmlFor="invite-email">Email address</Label>
+						<Field className="flex-1">
+							<FieldLabel htmlFor="invite-email">Email address</FieldLabel>
 							<Input
 								id="invite-email"
 								type="email"
@@ -156,9 +156,9 @@ function OverviewTab({
 								value={inviteEmail}
 								onChange={(e) => setInviteEmail(e.target.value)}
 							/>
-						</div>
-						<div className="grid gap-1.5">
-							<Label htmlFor="invite-role">Role</Label>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="invite-role">Role</FieldLabel>
 							<Select
 								value={inviteRole}
 								onValueChange={(v) => setInviteRole(v)}
@@ -174,7 +174,7 @@ function OverviewTab({
 									)}
 								</SelectContent>
 							</Select>
-						</div>
+						</Field>
 						<Button type="submit" disabled={inviting || !inviteEmail.trim()}>
 							<UserPlus data-icon="inline-start" />
 							{inviting ? "Sending..." : "Invite"}
@@ -385,8 +385,8 @@ function InvitationsTab({
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleInvite} className="flex items-end gap-3">
-						<div className="flex-1 grid gap-1.5">
-							<Label htmlFor="inv-email">Email address</Label>
+						<Field className="flex-1">
+							<FieldLabel htmlFor="inv-email">Email address</FieldLabel>
 							<Input
 								id="inv-email"
 								type="email"
@@ -394,9 +394,9 @@ function InvitationsTab({
 								value={inviteEmail}
 								onChange={(e) => setInviteEmail(e.target.value)}
 							/>
-						</div>
-						<div className="grid gap-1.5">
-							<Label htmlFor="inv-role">Role</Label>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="inv-role">Role</FieldLabel>
 							<Select
 								value={inviteRole}
 								onValueChange={(v) => setInviteRole(v)}
@@ -412,7 +412,7 @@ function InvitationsTab({
 									)}
 								</SelectContent>
 							</Select>
-						</div>
+						</Field>
 						<Button type="submit" disabled={inviting || !inviteEmail.trim()}>
 							{inviting ? "Sending..." : "Send invitation"}
 						</Button>
@@ -532,23 +532,23 @@ function SettingsTab({
 					<CardDescription>Update your organization details</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form onSubmit={handleSave} className="grid gap-4 max-w-sm">
-						<div className="grid gap-1.5">
-							<Label htmlFor="org-name">Name</Label>
+					<form onSubmit={handleSave} className="flex flex-col gap-4 max-w-sm">
+						<Field>
+							<FieldLabel htmlFor="org-name">Name</FieldLabel>
 							<Input
 								id="org-name"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 							/>
-						</div>
-						<div className="grid gap-1.5">
-							<Label htmlFor="org-slug">Slug</Label>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="org-slug">Slug</FieldLabel>
 							<Input
 								id="org-slug"
 								value={slug}
 								onChange={(e) => setSlug(e.target.value)}
 							/>
-						</div>
+						</Field>
 						<Button
 							type="submit"
 							disabled={
